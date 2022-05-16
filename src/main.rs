@@ -24,7 +24,8 @@ use rand_pcg::Pcg64;
 // 3.) implement radix ordering
 // 4.) Integrate fuzzy_rocks
 
-
+mod radix_permutation_iter;
+use radix_permutation_iter::*;
 
 fn main() {
 
@@ -105,6 +106,9 @@ impl LetterDistribution {
     /// in descending order of probability, along with their probability
     pub fn ordered_permutations(&self) -> OrderedPermutationIter {
         OrderedPermutationIter::new(self)
+    }
+    pub fn radix_permutations(&self) -> RadixPermutationIter {
+        RadixPermutationIter::new(self)
     }
     fn normalize_and_sort(&mut self) {
 
@@ -347,8 +351,6 @@ impl<'a> OrderedPermutationIter<'a> {
     }
 }
 
-//NOTE: This Iterator approach is possible because the letter probabilities are independent
-// of each other, so the total probability is simply a multiplication of each one.
 impl Iterator for OrderedPermutationIter<'_> {
     type Item = (Vec<usize>, f32);
 
@@ -809,5 +811,37 @@ mod tests {
     // word has ~50% probability with the other 50% being spread among 4 other random letters.
     //Then pick N letters in the distribution to swap the target letter with one of the minor
     // probabilities of a bogie letter chosen at random.
+
+    #[test]
+    /// A basic test for the RadixPermutationIter
+    fn radix_test_0() {
+
+        let letter_probs = vec![
+            vec![('a', 0.8), ('b', 0.2)],
+            vec![('a', 0.7), ('b', 0.3)],
+            vec![('a', 0.6), ('b', 0.4)],
+        ];
+        let test_dist = LetterDistribution::from_probs(&letter_probs);
+        println!("Testing:");
+        println!("{}", test_dist);
+
+        let results: Vec<(usize, (Vec<usize>, f32))> = test_dist.radix_permutations().enumerate().collect();
+        for (i, (possible_word, word_prob)) in results.iter() {
+            println!("--{}: {:?} {}", i, possible_word, word_prob);
+        }
+
+        let result_strings: Vec<Vec<usize>> = results.into_iter().map(|(_idx, (string, _prob))| string).collect();
+        assert_eq!(result_strings,
+            vec![
+                result_from_str("aaa"),
+                result_from_str("aab"), 
+                result_from_str("aba"),
+                result_from_str("abb"),
+                result_from_str("baa"),
+                result_from_str("bab"),
+                result_from_str("bba"),
+                result_from_str("bbb"),
+            ]);
+    }
 
 }
