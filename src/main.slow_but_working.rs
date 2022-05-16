@@ -145,6 +145,9 @@ pub struct OrderedPermutationIter<'a> {
 
     /// A place to stash future results with probs that equal to the last-returned result
     result_stash: Vec<(Vec<usize>, f32)>,
+
+    /// Initialization is a degenerate case
+    new_iter: bool,
 }
 
 impl<'a> OrderedPermutationIter<'a> {
@@ -158,6 +161,7 @@ impl<'a> OrderedPermutationIter<'a> {
             high_water_mark: vec![0; letter_count],
             current_prob: 1.0,
             result_stash: vec![],
+            new_iter: true,
         }
     }
     fn state_to_result(&self) -> Option<(Vec<usize>, f32)> {
@@ -178,13 +182,12 @@ impl<'a> OrderedPermutationIter<'a> {
     /// NOTE: we perform the arithmetic in 64-bit, even though we only care about a 32-bit
     /// result, because we need the value to be very, very stable, or we run the risk of
     /// ending up in an infinite loop or skipping a result
-    ///
-    fn prob_from_state(dist: &LetterDistribution, state: &[usize]) -> f64 {
+    fn prob_from_state(&self, state: &[usize]) -> f64 {
         let mut new_prob = 1.0;
         for (slot_idx, &sorted_letter_idx) in state.iter().enumerate() {
 
-            let letter_idx = dist.sorted_letters[slot_idx][sorted_letter_idx];
-            new_prob *= dist.letter_probs[slot_idx][letter_idx] as f64;
+            let letter_idx = self.dist.sorted_letters[slot_idx][sorted_letter_idx];
+            new_prob *= self.dist.letter_probs[slot_idx][letter_idx] as f64;
         }
 
         new_prob
@@ -200,116 +203,94 @@ impl<'a> OrderedPermutationIter<'a> {
         let mut highest_prob = 0.0;
         let mut return_val = None;
 
-        //GOAT TODO: Write up a better explanation of the alforithm overall, once it's fully debugged
+        //The "tops" are the highest values each individual letter could possibly have and still reference
+        // the next combination in the sequence
+        let mut tops = Vec::with_capacity(letter_count);
+        for &val in self.high_water_mark.iter() {
+            tops.push((val+1).min(BRANCHING_FACTOR));
+        }
 
-        //NOTE: when letter_to_advance == letter_count, that means we don't attempt to advance any letter
-        for letter_to_advance in 0..(letter_count+1) {
+        //GOAT ARGH!  There must be a way to establish "bottoms" that aren't so conservative as to be
+        // paractially useless.  The commented out code below works, but in every test case, it only
+        // finds bottoms that are equal to `vec![0; letter_count]`, which is pointless.
+        //
+        //We could recalculate bottom for each top permutation, except that the cost of calculating
+        // bottom would outtweigh the savings
 
-            //The "tops" are the highest values each individual letter could possibly have and still reference
-            // the next combination in the sequence
-            let mut tops = Vec::with_capacity(letter_count);
-            for (i , &val) in self.high_water_mark.iter().enumerate() {
-                if i == letter_to_advance {
-                    tops.push((val+1).min(BRANCHING_FACTOR));
+        //1. Each top must have a max net increment of 1
+        //2. Working from a top that's known valid, I should be able to figure out the bottoms, to guide
+        //  the rest of the iteration
+
+
+        //A. choose a top, by iterating linearly.  Just that one value beyond the high-water mark, and the others
+        //      left at the hwm.
+        //B. choose all bottoms based on that top.
+        //C. Iterate all permutations between the bottoms and the top,
+        //      but (maybe) exclude testing permutations where the chosen top isn't at state or beyond...
+
+
+
+        // //Find the "bottoms", i.e. the lowest value each letter could possibly have without exceeding
+        // // prob_threshold
+        // let mut bottoms = Vec::with_capacity(letter_count);
+        // for i in 0..letter_count {
+        //     let old_top = tops[i];
+        //     let mut new_bottom = state[i];
+        //     loop {
+        //         if new_bottom == 0 {
+        //             bottoms.push(0);
+        //             break;
+        //         }
+        //         tops[i] = new_bottom; //Temporarily hijacking tops
+        //         let prob = self.prob_from_state(&tops) as f32;
+        //         if prob > prob_threshold {
+        //             bottoms.push(new_bottom+1);
+        //             break;
+        //         } else {
+        //             new_bottom -= 1;
+        //         }
+        //     }
+        //     tops[i] = old_top;
+        // }
+
+        //We need to check every combination of adjustments between tops and bottoms
+        let mut temp_state = vec![0; letter_count];//bottoms.clone();
+        let mut finished = false;
+        while !finished {
+
+            //Increment the adjustments to the next state we want to try
+            temp_state[0] += 1; //It is impossible for the initial starting case (all bottoms) to be the
+                //next sequence element, because it's going to be the current sequence element or something
+                //earlier
+            let mut cur_letter = 0;
+            while temp_state[cur_letter] > tops[cur_letter] {
+                temp_state[cur_letter] = 0;//bottoms[cur_letter];
+                cur_letter += 1;
+                if cur_letter < letter_count {
+                    temp_state[cur_letter] += 1;
                 } else {
-                    tops.push((val).min(BRANCHING_FACTOR));
+                    finished = true;
+                    break;
                 }
             }
 
-            //Find the "bottoms", i.e. the lowest value each letter could possibly have
-            // given the "tops", without exceeding the probability threshold established by
-            // self.current_prob
-            let mut bottoms = Vec::with_capacity(letter_count);
-            for i in 0..letter_count {
-                let old_top = tops[i];
-                let mut new_bottom = self.state[i];
-                loop {
-                    if new_bottom == 0 {
-                        bottoms.push(0);
-                        break;
-                    }
-                    tops[i] = new_bottom; //Temporarily hijacking tops
-                    let prob = Self::prob_from_state(self.dist, &tops) as f32;
-                    if prob > self.current_prob {
-                        bottoms.push(new_bottom+1);
-                        break;
-                    } else {
-                        new_bottom -= 1;
-                    }
-                }
-                tops[i] = old_top;
-            }
+            if !finished {
 
-            //We need to check every combination of adjustments between tops and bottoms
-            let mut temp_state = bottoms.clone();
-            if letter_to_advance < letter_count {
-                temp_state[letter_to_advance] = tops[letter_to_advance];
-            }
-            let mut finished = false;
-            while !finished {
+                let temp_prob = self.prob_from_state(&temp_state) as f32;
     
-                //FUUUUUUUUUUCK! GOAT!!! There is a nasty bug that's affecting equal-weight
-                // solutions.  The fix should be to move the below code (commented out)
-                // from above the loop into the loop, so when we're testing a certain letter,
-                // we never deviate from the letter's max value.  But it breaks some other
-                // tests.
-                // if letter_to_advance < letter_count {
-                //     temp_state[letter_to_advance] = tops[letter_to_advance];
-                // }
-    
-                //Increment the adjustments to the next state we want to try
-                //NOTE: It is impossible for the initial starting case (all bottoms) to be the
-                // next sequence element, because it's going to be the current sequence element
-                // or something earlier
-                let mut cur_letter;
-                if letter_to_advance != 0 {
-                    temp_state[0] += 1;
-                    cur_letter = 0;
-                } else {
-                    temp_state[1] += 1;
-                    cur_letter = 1;
-                }
+// println!("goatie {:?} is {}", temp_state, temp_prob);
 
-                //Deal with any rollover caused by the increment above
-                while temp_state[cur_letter] > tops[cur_letter] {
-
-                    temp_state[cur_letter] = bottoms[cur_letter];
-                    cur_letter += 1;
-
-                    //Skip over the letter_to_advance, which we're going to leave pegged to tops
-                    if cur_letter == letter_to_advance {
-                        cur_letter += 1;
-                    }
-
-                    if cur_letter < letter_count {
-                        temp_state[cur_letter] += 1;
-                    } else {
-                        finished = true;
-                        break;
-                    }
-                }
-
-                let temp_prob = Self::prob_from_state(self.dist, &temp_state) as f32;
-    
                 if temp_prob > 0.0 && temp_prob < self.current_prob && temp_prob >= highest_prob {
 
                     //Replace the results with a fresh array
                     if temp_prob > highest_prob {
 
-
                         //Advance "tops", so we'll find additional equal-weight results
                         //but first reset "tops" to the original value
                         for i in 0..letter_count {
-                            
-                            if i == letter_to_advance {
-                                tops[i] = (self.high_water_mark[i]+1).min(BRANCHING_FACTOR);
-                            } else {
-                                tops[i] = (self.high_water_mark[i]).min(BRANCHING_FACTOR);
-                            }
-
+                            tops[i] = (self.high_water_mark[i]+1).min(BRANCHING_FACTOR);
                             if temp_state[i] >= tops[i] {
                                 tops[i] = temp_state[i]+1;
-                                finished = false;
                             }
                         }
 
@@ -323,21 +304,11 @@ impl<'a> OrderedPermutationIter<'a> {
                         for i in 0..letter_count {
                             if temp_state[i] >= tops[i] {
                                 tops[i] = temp_state[i]+1;
-                                finished = false;
                             }
                         }
 
-                        //Append to the existing results array, but
-                        //  We never want to add a duplicate
-                        //NOTE: I am REEEEEEEEAAAAAAAAALLLLYYYYYYYYY UNHAPPY with this check
-                        // It just feels to me that a smarter (cheaper) check or reworking of the
-                        // bounds would save us from needing to do this here.  But since exact
-                        // duplicates should be rare in real-world cases, we shouldn't hit this
-                        // often enough to actuall matter much.
-                        let unwrapped_ret = return_val.as_mut().unwrap();
-                        if unwrapped_ret.iter().position(|(element_state, _prob)| *element_state == temp_state).is_none() {
-                            unwrapped_ret.push((temp_state.clone(), highest_prob));
-                        }
+                        //Append to the existing results array
+                        return_val.as_mut().unwrap().push((temp_state.clone(), highest_prob));
                     }
                 }
             }
@@ -346,6 +317,13 @@ impl<'a> OrderedPermutationIter<'a> {
         return_val
     }
 }
+
+//GOAT.  Explanation to Adam.  I ended up going back to the original algorithm.  The reason I spent a few
+// hours on that bitcode idea was because I was uneasy with the numerical instability that comes from doing
+// a floating point compare on the results of arithmetic operations.  And I didn't feel like performing the
+// numerical analysis to make it robust... However, I realized I could just perform the arithmetic in
+// 64-bit, and then the comparison in 32 bit, and it should be stable for all intents and purposes.
+
 
 //NOTE: This Iterator approach is possible because the letter probabilities are independent
 // of each other, so the total probability is simply a multiplication of each one.
@@ -361,7 +339,7 @@ impl Iterator for OrderedPermutationIter<'_> {
             self.state = new_state;
             self.current_prob = new_prob;
 
-// println!("from_stash {:?} = {}", self.state, self.current_prob); //GOAT, debug print
+// println!("goat from_stash {:?} = {}", self.state, self.current_prob);
             return self.state_to_result();        
         }
 
@@ -372,6 +350,7 @@ impl Iterator for OrderedPermutationIter<'_> {
             for (new_state, _new_prob) in new_states.iter() {
                 for i in 0..letter_count {
                     if new_state[i] > self.high_water_mark[i] {
+// println!("GOAT ADVANCE!!!! slot {}, {} to {}", i, self.high_water_mark[i], new_state[i]);
                         self.high_water_mark[i] = new_state[i];
                     }
                 }
@@ -380,11 +359,19 @@ impl Iterator for OrderedPermutationIter<'_> {
             //Stash all the results we got
             self.result_stash = new_states;
 
-            //Return one result from our stash
-            let (new_state, new_prob) = self.result_stash.pop().unwrap();
-            self.state = new_state;
-            self.current_prob = new_prob;
+            //Handle the startup case
+            if self.new_iter {
+                self.state = vec![0; letter_count]; //This should already be the case
+                self.current_prob = self.prob_from_state(&vec![0; letter_count]) as f32;
+                self.new_iter = false;
+            } else {
+                //Return one result from our stash
+                let (new_state, new_prob) = self.result_stash.pop().unwrap();
+                self.state = new_state;
+                self.current_prob = new_prob;
+            }
 
+// println!("goat, new state {:?} = {}", self.state, self.current_prob);
             return self.state_to_result();
                 
         } else {
