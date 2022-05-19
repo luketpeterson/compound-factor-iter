@@ -2,8 +2,10 @@
 use core::fmt;
 use std::fs;
 use std::io::{BufReader, BufRead};
-use std::path::{Path};
+use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
+
+use fuzzy_rocks::{*};
 
 use rand::prelude::*;
 use rand_pcg::Pcg64;
@@ -29,18 +31,51 @@ use radix_permutation_iter::*;
 
 fn main() {
 
-    let _dict_tree = build_tree_from_dict("/usr/share/dict/words");
+    //Open the FuzzyRocks Table, or initialize it if it doesn't exist
+    let table = if !PathBuf::from("test.rocks").exists() {
+        let mut table = Table::<DefaultTableConfig, true>::new("test.rocks", DefaultTableConfig()).unwrap();
+        table.reset().unwrap();
+        init_table_with_dict(&mut table, "/usr/share/dict/words");
+        table
+    } else {
+        Table::<DefaultTableConfig, true>::new("test.rocks", DefaultTableConfig()).unwrap()
+    };
+
+    let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
+    //let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen());
     
+    //"adventurous", on top of randomness
+    let mut test_dist = LetterDistribution::random(11, 3, &mut rng, |_, _, rng| rng.gen());
+    test_dist.set_letter_prob(0, 'a', 0.5);
+    test_dist.set_letter_prob(1, 'd', 0.5);
+    test_dist.set_letter_prob(2, 'v', 0.3);
+    test_dist.set_letter_prob(3, 'e', 0.5);
+    test_dist.set_letter_prob(4, 'n', 0.3);
+    test_dist.set_letter_prob(5, 't', 0.01);
+    test_dist.set_letter_prob(6, 'u', 0.5);
+    test_dist.set_letter_prob(7, 'r', 0.5);
+    test_dist.set_letter_prob(8, 'o', 0.01);
+    test_dist.set_letter_prob(9, 'u', 0.5);
+    test_dist.set_letter_prob(10, 's', 0.5);
+    println!("{}", test_dist);
 
-    //MAIN
-
-    //Iterate over the possible words from the distribution,
-    // compare them against the dict,
-    // and stop when we get to 100 hits
-    // for (i, (possible_word, word_prob)) in test_dist.permutations().enumerate() {
-    //     println!("--{}: {:?} {}", i, possible_word, word_prob);
-    // }
-
+    //Iterate the permutations, and try looking each one up
+    //for (i, (permutation, prob)) in test_dist.radix_permutations().enumerate() {
+    for (i, (permutation, prob)) in test_dist.ordered_permutations().enumerate() {
+        
+        let perm_string: String = permutation.into_iter().map(|idx| char::from((idx+97) as u8)).collect();
+        
+        if i%100 == 0 {
+            println!("--{}: {:?} {}", i, perm_string, prob);
+        }
+        
+        for (record_id, distance) in table.lookup_fuzzy(&perm_string, Some(2)).unwrap() {
+            
+            //The value also happens to be the key.  How convenient.
+            let dict_word = table.get_value(record_id).unwrap();
+            println!("idx = {}, raw_prob = {}, {} matches {}, distance={}", i, prob, perm_string, dict_word, distance, );
+        }
+    }
 }
 
 const BRANCHING_FACTOR: usize = 26;  //26 letters in the alphabet
@@ -55,6 +90,22 @@ pub struct LetterDistribution {
 }
 
 impl LetterDistribution {
+    pub fn set_letter_prob(&mut self, letter_idx: usize, letter: char, new_prob: f32) {
+
+        let letter_ord = char_to_idx(letter).unwrap();
+        let scale_factor = (1.0 - new_prob) / (1.0 - self.letter_probs[letter_idx][letter_ord]);
+
+        //Scale the prob of all other possible letters in the distribution,
+        // excluding the one we are about to set
+        for (idx, prob) in self.letter_probs[letter_idx].iter_mut().enumerate() {
+            if idx != letter_ord {
+                *prob *= scale_factor;
+            }
+        }
+
+        self.letter_probs[letter_idx][letter_ord] = new_prob;
+        self.normalize_and_sort();
+    }
     /// Makes a LetterDistribution from a set of specified probabilities
     pub fn from_probs(input_probs: &[Vec<(char, f32)>]) -> Self {
 
@@ -124,6 +175,7 @@ impl LetterDistribution {
         }
 
         //Create a parallel array, sorted by the probability of each letter in descending order
+        self.sorted_letters = Vec::with_capacity(self.letter_count());
         for letter in self.letter_probs.iter() {
             let mut sorted_letters = (0..BRANCHING_FACTOR).collect::<Vec<usize>>();
             sorted_letters.sort_by(|&letter_idx_a, &letter_idx_b| letter[letter_idx_b].partial_cmp(&letter[letter_idx_a]).unwrap_or(Ordering::Equal));
@@ -410,11 +462,6 @@ impl fmt::Display for LetterDistribution {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-struct Tree {
-    children: [Option<Box<Tree>>; BRANCHING_FACTOR],
-}
-
 //Returns None for spaces, punctuation, etc.
 fn char_to_idx(c: char) -> Option<usize> {
 
@@ -431,31 +478,20 @@ fn char_to_idx(c: char) -> Option<usize> {
     }
 }
 
-fn build_tree_from_dict<P: AsRef<Path>>(file_path: P) -> Tree {
+fn init_table_with_dict<P: AsRef<Path>>(table: &mut Table::<DefaultTableConfig, true>, file_path: P) {
 
     let f = fs::File::open(file_path).unwrap();
 
-    let mut tree_root = Tree::default();
-
     //Read each line in the file, one word per line
-    for line_result in BufReader::new(f).lines() {
+    for (idx, line_result) in BufReader::new(f).lines().enumerate() {
 
-        let mut cur_tree_node = &mut tree_root;
+        let line = line_result.unwrap();
+        table.insert(line.clone(), &line).unwrap();
 
-        //Iterate every char in the line
-        for cur_char in line_result.unwrap().chars() {
-            if let Some(char_idx) = char_to_idx(cur_char) {
-
-                //A Some value for a children array-element means that this letter exists 
-                if cur_tree_node.children[char_idx].is_none() {
-                    cur_tree_node.children[char_idx] = Some(Box::new(Tree::default()));
-                }
-                cur_tree_node = cur_tree_node.children[char_idx].as_mut().unwrap();
-            }
+        if idx % 1000 == 0 {
+            println!("Loaded word #{}, {}", idx, line);
         }
     }
-
-    tree_root
 }
 
 #[cfg(test)]
@@ -787,8 +823,8 @@ mod tests {
     fn test_6() {
 
         let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
-        let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen()); //GOAT, this is the real test
-        //let test_dist = LetterDistribution::random(23, 4, &mut rng, |_, _, rng| rng.gen());
+        //let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen()); //GOAT, this is the real test
+        let test_dist = LetterDistribution::random(20, 4, &mut rng, |_, _, rng| rng.gen());
         println!("{}", test_dist);
 
         // Test that a subsequent result isn't more probable than a prior result
@@ -842,6 +878,28 @@ mod tests {
                 result_from_str("bba"),
                 result_from_str("bbb"),
             ]);
+    }
+
+    #[test]
+    /// Compare a radix iterator against an ordered iterator
+    fn radix_test_1() {
+
+        println!();
+        let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
+        let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen()); //GOAT, this is the real test
+        //let test_dist = LetterDistribution::random(23, 4, &mut rng, |_, _, rng| rng.gen());
+        println!("{}", test_dist);
+
+        let ordered: Vec<(Vec<usize>, f32)> = test_dist.ordered_permutations().take(100).collect();
+        let radix: Vec<(Vec<usize>, f32)> = test_dist.radix_permutations().take(1000).collect();
+
+        for (i, (possible_word, word_prob)) in ordered.into_iter().enumerate() {
+            if radix.contains(&(possible_word.clone(), word_prob)) {
+                println!("YES --{}: {:?} {}", i, possible_word, word_prob);
+            } else {
+                println!("No --{}: {:?} {}", i, possible_word, word_prob);
+            }
+        }
     }
 
 }
