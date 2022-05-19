@@ -11,6 +11,8 @@ pub struct RadixPermutationIter<'a> {
     /// A reference to the distribution we're iterating over
     dist: &'a LetterDistribution,
 
+    //GOAT, Update this comment to capture the idea that there are multiple ordering regimes
+    // that switch as the ordering progresses.
     /// A sorted list of the probabilities of the second-place components, in order to
     ///  hit results that include them sooner in the iteration.
     /// NOTE: There is a tradeoff between the word length and how many components to
@@ -22,7 +24,7 @@ pub struct RadixPermutationIter<'a> {
     ///  to consider a sum of places 2 & 3, or possibly places 2-4.  It all comes
     ///  down the the number of letters vs. the number of iterations that can be
     ///  realistically considered.
-    ordering: Vec<usize>,
+    orderings: Vec<Vec<usize>>,
 
     /// The current position of the result, as indices into the sorted_letters arrays
     state: Vec<usize>,
@@ -41,65 +43,70 @@ impl<'a> RadixPermutationIter<'a> {
 
         let letter_count = dist.letter_count();
 
-        let ordering = match letter_count {
-            0..=7 => {
-                //NOTE: For distributions with a small number of factors, it really shouldn't
-                // matter much because we can easily iterate the whole set, but we get better
-                // results considering the second, third, etc. (up to 3 in this case)
-                let mut ordering = Vec::with_capacity(letter_count);
-                for i in 0..letter_count {        
-
-                    let mut l = 1;
-                    let mut prob = 0.0;
-                    while l < letter_count && l < 3 {
-                        let idx = dist.sorted_letters[i][l];
-                        prob += dist.letter_probs[i][idx];
-                        l += 1;  
-                    }
-        
-                    ordering.push((prob, i));
-                }
-                ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_b.partial_cmp(&prob_a).unwrap_or(Ordering::Equal));
-                let ordering = ordering.into_iter().map(|(_prob, idx)| idx).collect();
-                ordering
-            },
-            8..=16 => {
-                //NOTE: For moderate distributions, the best results come from considering
-                // the second-place value
-                let mut ordering = Vec::with_capacity(letter_count);
-                for i in 0..letter_count {        
-                    let idx = dist.sorted_letters[i][1];
-                    let prob = dist.letter_probs[i][idx];
-        
-                    ordering.push((prob, i));
-                }
-                ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_b.partial_cmp(&prob_a).unwrap_or(Ordering::Equal));
-                let ordering = ordering.into_iter().map(|(_prob, idx)| idx).collect();
-                ordering
-            },
-            _ => {
-                //NOTE: It seems the best results on the nastiest distributions, i.e. with
-                //  the most factors, come from establishing ordering based on the
-                //  difference between the top and second places.
-                let mut ordering = Vec::with_capacity(letter_count);
-                for i in 0..letter_count {                    
-                    let idx_0 = dist.sorted_letters[i][0];
-                    let prob_0 = dist.letter_probs[i][idx_0];
-        
-                    let idx_1 = dist.sorted_letters[i][1];
-                    let prob_1 = dist.letter_probs[i][idx_1];
-        
-                    ordering.push((prob_0 - prob_1, i));
-                }
-                ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_a.partial_cmp(&prob_b).unwrap_or(Ordering::Equal));
-                let ordering = ordering.into_iter().map(|(_prob, idx)| idx).collect();
-                ordering
+        let mut orderings = Vec::with_capacity(3);
+        //Before we make it to [1, 1, 1, 1, 1, ...]
+        orderings.push({
+            //NOTE: It seems the best results on the nastiest distributions, i.e. with
+            //  the most factors, come from establishing ordering based on the
+            //  difference between the top and second places.
+            let mut ordering = Vec::with_capacity(letter_count);
+            for i in 0..letter_count {                    
+                let idx_0 = dist.sorted_letters[i][0];
+                let prob_0 = dist.letter_probs[i][idx_0];
+    
+                let idx_1 = dist.sorted_letters[i][1];
+                let prob_1 = dist.letter_probs[i][idx_1];
+    
+                ordering.push((prob_0 - prob_1, i));
             }
-        };
+            ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_a.partial_cmp(&prob_b).unwrap_or(Ordering::Equal));
+            let ordering = ordering.into_iter().map(|(_prob, idx)| idx).collect();
+            ordering
+        });
+
+        //After we pass [1, 1, 1, 1, 1, ...], but
+        //Before we make it to [2, 2, 2, 2, 2, ...]
+        orderings.push({
+            //NOTE: For moderate distributions, the best results come from considering
+            // the second-place value
+            let mut ordering = Vec::with_capacity(letter_count);
+            for i in 0..letter_count {        
+                let idx = dist.sorted_letters[i][1];
+                let prob = dist.letter_probs[i][idx];
+    
+                ordering.push((prob, i));
+            }
+            ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_b.partial_cmp(&prob_a).unwrap_or(Ordering::Equal));
+            let ordering = ordering.into_iter().map(|(_prob, idx)| idx).collect();
+            ordering
+        });
+
+        //After we pass [2, 2, 2, 2, 2, ...]
+        orderings.push({
+            //NOTE: For distributions with a small number of factors, it really shouldn't
+            // matter much because we can easily iterate the whole set, but we get better
+            // results considering the second, third, etc. (up to 3 in this case)
+            let mut ordering = Vec::with_capacity(letter_count);
+            for i in 0..letter_count {        
+
+                let mut l = 1;
+                let mut prob = 0.0;
+                while l < letter_count && l < 3 {
+                    let idx = dist.sorted_letters[i][l];
+                    prob += dist.letter_probs[i][idx];
+                    l += 1;  
+                }
+    
+                ordering.push((prob, i));
+            }
+            ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_b.partial_cmp(&prob_a).unwrap_or(Ordering::Equal));
+            let ordering = ordering.into_iter().map(|(_prob, idx)| idx).collect();
+            ordering
+        });
 
         Self {
             dist,
-            ordering,
+            orderings,
             state: vec![0; letter_count],
             max_digit: 1,
             new_iter: true,
@@ -108,8 +115,10 @@ impl<'a> RadixPermutationIter<'a> {
     //TODO: unify this with OrderedPermutationIter
     fn state_to_result(&self) -> Option<(Vec<usize>, f32)> {
 
+        let ordering_idx = (self.max_digit-1).min(2);
+
         let mut permuted_state = vec![0; self.dist.letter_count()];
-        for (i, &idx) in self.ordering.iter().enumerate() {
+        for (i, &idx) in self.orderings[ordering_idx].iter().enumerate() {
             permuted_state[i] = self.state[idx];
         }
 
