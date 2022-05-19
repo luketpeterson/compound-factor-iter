@@ -27,6 +27,11 @@ pub struct RadixPermutationIter<'a> {
     /// The current position of the result, as indices into the sorted_letters arrays
     state: Vec<usize>,
 
+    /// The maximum digit position across the entire state vec.  This allows us to evenly
+    /// increment the low positions of every digit before attempting to set any digits to
+    /// relatively high (improbable) values.
+    max_digit: usize,
+
     /// Initialization is a degenerate case
     new_iter: bool,
 }
@@ -41,6 +46,10 @@ impl<'a> RadixPermutationIter<'a> {
 
             let idx = dist.sorted_letters[i][1]; //Only consider 2nd place for now.  See comment in declaration of "ordering"
             let prob = dist.letter_probs[i][idx];
+
+            //Experiment ordering with multiple places
+            // let idx_2 = dist.sorted_letters[i][1];
+            // let prob = dist.letter_probs[i][idx] + dist.letter_probs[i][idx_2];
             ordering.push((prob, i));
         }
         ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_b.partial_cmp(&prob_a).unwrap_or(Ordering::Equal));
@@ -50,6 +59,7 @@ impl<'a> RadixPermutationIter<'a> {
             dist,
             ordering,
             state: vec![0; letter_count],
+            max_digit: 1,
             new_iter: true,
         }
     }
@@ -93,30 +103,18 @@ impl<'a> RadixPermutationIter<'a> {
 
         new_prob
     }
-}
 
-impl Iterator for RadixPermutationIter<'_> {
-    type Item = (Vec<usize>, f32);
-
-    fn next(&mut self) -> Option<Self::Item> {
+    fn step(&mut self) -> (bool, Option<(Vec<usize>, f32)>) {
 
         let letter_count = self.dist.letter_count();
 
-        if self.new_iter {
-            self.new_iter = false;
-            return self.state_to_result();
-        }
-
-        let mut min_digit = BRANCHING_FACTOR;
-        for &digit in self.state.iter() {
-            if digit < min_digit {
-                min_digit = digit;
-            }
-        }
+        //TODO, if a component reaches the zero threshold then that is the effective max_digit
+        // for that component
+        //TODO, if every component is at the zero threshold then we're done iterating
         
         self.state[0] += 1;
         let mut cur_digit = 0;
-        while self.state[cur_digit] > min_digit+1 {
+        while self.state[cur_digit] > self.max_digit {
 
             self.state[cur_digit] = 0;
             cur_digit += 1;
@@ -124,11 +122,50 @@ impl Iterator for RadixPermutationIter<'_> {
             if cur_digit < letter_count {
                 self.state[cur_digit] += 1;
             } else {
-                //We've finished the iteration...
-                return None;
+                if self.max_digit < BRANCHING_FACTOR-1 {
+                    self.max_digit += 1;
+                    cur_digit = 0;
+                } else {
+                    //We've finished the iteration...
+                    return (false, None);
+                }
             }
         }
 
-        self.state_to_result()
+        let mut local_max_digit = 0;
+        for &digit in self.state.iter() {
+            if digit > local_max_digit {
+                local_max_digit = digit;
+            }
+        }
+        if local_max_digit < self.max_digit {
+            self.state[0] = self.max_digit;
+        }
+
+        (true, self.state_to_result())
+    }
+}
+
+impl Iterator for RadixPermutationIter<'_> {
+    type Item = (Vec<usize>, f32);
+
+    fn next(&mut self) -> Option<Self::Item> {
+
+        if self.new_iter {
+            self.new_iter = false;
+            return self.state_to_result();
+        }
+
+        //We don't want to stop iterating until we've actually exhausted all permutations,
+        // since we can't guarantee there aren't better options to come
+        loop {
+            let (keep_going, result_option) = self.step();
+            if !keep_going {
+                return None;
+            }
+            if result_option.is_some() {
+                return result_option;
+            }
+        }
     }
 }

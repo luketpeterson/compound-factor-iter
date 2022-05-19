@@ -20,12 +20,6 @@ use rand_pcg::Pcg64;
 /// component probabilities in the order of compound probability.
 /// 
 
-//GOAT TODO:
-// 1.) Do tops-first
-// 2.) finish migrating tests
-// 3.) implement radix ordering
-// 4.) Integrate fuzzy_rocks
-
 mod radix_permutation_iter;
 use radix_permutation_iter::*;
 
@@ -60,8 +54,8 @@ fn main() {
     println!("{}", test_dist);
 
     //Iterate the permutations, and try looking each one up
-    //for (i, (permutation, prob)) in test_dist.radix_permutations().enumerate() {
-    for (i, (permutation, prob)) in test_dist.ordered_permutations().enumerate() {
+    for (i, (permutation, prob)) in test_dist.radix_permutations().enumerate() {
+    // for (i, (permutation, prob)) in test_dist.ordered_permutations().enumerate() {
         
         let perm_string: String = permutation.into_iter().map(|idx| char::from((idx+97) as u8)).collect();
         
@@ -499,6 +493,46 @@ mod tests {
     use std::collections::HashMap;
     use crate::*;
 
+    //Compute each of the probs from a straightforward iteration, and then sort them
+    // to produce a ground-truth results vector
+    fn generate_ground_truth(dist: &LetterDistribution, set_letter_positions: usize) -> Vec<(Vec<usize>, f32)> {
+
+        let end_state = vec![set_letter_positions-1; dist.letter_count()];
+        let mut ground_truth = vec![];
+        let mut state = vec![0; dist.letter_count()];
+        loop {
+
+            let mut prob: f64 = 1.0;
+            for l in 0..dist.letter_count() {
+                let letter_idx = dist.sorted_letters[l][state[l]];
+                prob *= dist.letter_probs[l][letter_idx] as f64;
+            }
+
+            let result: Vec<usize> = state.iter()
+                .enumerate()
+                .map(|(slot_idx, sorted_letter_idx)| dist.sorted_letters[slot_idx][*sorted_letter_idx])
+                .collect();
+
+            if prob > 0.0 {
+                ground_truth.push((result, prob as f32));
+            }
+    
+            if state == end_state {
+                break;
+            }
+
+            state[0] += 1;
+            let mut cur_digit = 0;
+            while state[cur_digit] > set_letter_positions-1 {
+                state[cur_digit] = 0;
+                cur_digit += 1;
+                state[cur_digit] += 1;
+            }
+        }
+        ground_truth.sort_by(|(_, prob_a), (_, prob_b)| prob_b.partial_cmp(prob_a).unwrap_or(Ordering::Equal));
+        ground_truth
+    }
+
     /// Convenience function for test cases
     fn group_result_by_prob(results: Vec<(Vec<usize>, f32)>) -> HashMap<String, Vec<Vec<usize>>> {
 
@@ -714,40 +748,7 @@ mod tests {
         //     println!("*{}* {:?}", i, sorted_probs);
         // }
 
-        //Compute each of the probs from a straightforward iteration, and then sort them
-        // to produce a ground-truth results vector
-        let mut ground_truth = vec![];
-        let mut state = vec![0; 4];
-        loop {
-
-            let mut prob: f64 = 1.0;
-            for l in 0..test_dist.letter_count() {
-                let letter_idx = test_dist.sorted_letters[l][state[l]];
-                prob *= test_dist.letter_probs[l][letter_idx] as f64;
-            }
-
-            let result: Vec<usize> = state.iter()
-                .enumerate()
-                .map(|(slot_idx, sorted_letter_idx)| test_dist.sorted_letters[slot_idx][*sorted_letter_idx])
-                .collect();
-
-            if prob > 0.0 {
-                ground_truth.push((result, prob as f32));
-            }
-    
-            if state == [3, 3, 3, 3] {
-                break;
-            }
-
-            state[0] += 1;
-            let mut cur_digit = 0;
-            while state[cur_digit] > 3 {
-                state[cur_digit] = 0;
-                cur_digit += 1;
-                state[cur_digit] += 1;
-            }
-        }
-        ground_truth.sort_by(|(_, prob_a), (_, prob_b)| prob_b.partial_cmp(prob_a).unwrap_or(Ordering::Equal));
+        let ground_truth = generate_ground_truth(&test_dist, 4);
         // for (i, (state, prob)) in ground_truth.iter().enumerate() {
         //     println!("G--{} {:?} = {}", i, state, prob);
         // }
@@ -772,40 +773,7 @@ mod tests {
         let test_dist = LetterDistribution::random(4, 4, &mut rng, |_, _, rng| rng.gen());
         println!("{}", test_dist);
         
-        //Compute each of the probs from a straightforward iteration, and then sort them
-        // to produce a ground-truth results vector
-        let mut ground_truth = vec![];
-        let mut state = vec![0; 4];
-        loop {
-
-            let mut prob: f64 = 1.0;
-            for l in 0..test_dist.letter_count() {
-                let letter_idx = test_dist.sorted_letters[l][state[l]];
-                prob *= test_dist.letter_probs[l][letter_idx] as f64;
-            }
-
-            let result: Vec<usize> = state.iter()
-                .enumerate()
-                .map(|(slot_idx, sorted_letter_idx)| test_dist.sorted_letters[slot_idx][*sorted_letter_idx])
-                .collect();
-
-            if prob > 0.0 {
-                ground_truth.push((result, prob as f32));
-            }
-            
-            if state == [3, 3, 3, 3] {
-                break;
-            }
-
-            state[0] += 1;
-            let mut cur_digit = 0;
-            while state[cur_digit] > 3 {
-                state[cur_digit] = 0;
-                cur_digit += 1;
-                state[cur_digit] += 1;
-            }
-        }
-        ground_truth.sort_by(|(_, prob_a), (_, prob_b)| prob_b.partial_cmp(prob_a).unwrap_or(Ordering::Equal));
+        let ground_truth = generate_ground_truth(&test_dist, 4);
         // for (i, (state, prob)) in ground_truth.iter().enumerate() {
         //     println!("G--{} {:?} = {}", i, state, prob);
         // }
@@ -881,8 +849,36 @@ mod tests {
     }
 
     #[test]
-    /// Compare a radix iterator against an ordered iterator
+    /// A test RadixPermutationIter with more than two possible options for each digit
     fn radix_test_1() {
+
+        let letter_probs = vec![
+            vec![('a', 0.4), ('b', 0.3), ('c', 0.2), ('d', 0.1)],
+            vec![('a', 0.4), ('b', 0.3), ('c', 0.2), ('d', 0.1)],
+            vec![('a', 0.4), ('b', 0.3), ('c', 0.2), ('d', 0.1)],
+        ];
+        let test_dist = LetterDistribution::from_probs(&letter_probs);
+        println!("Testing:");
+        println!("{}", test_dist);
+        
+        let results: Vec<(Vec<usize>, f32)> = test_dist.radix_permutations().collect();
+        for (i, (possible_word, word_prob)) in results.iter().enumerate() {
+            println!("--{}: {:?} {}", i, possible_word, word_prob);
+        }
+        let grouped_results = group_result_by_prob(results);
+
+        let ground_truth = generate_ground_truth(&test_dist, 4);
+        // for (i, (possible_word, word_prob)) in ground_truth.iter().enumerate() {
+        //     println!("G--{}: {:?} {}", i, possible_word, word_prob);
+        // }
+        let grouped_truth = group_result_by_prob(ground_truth);
+
+        assert!(compare_grouped_results(grouped_results, grouped_truth));
+    }
+
+    #[test]
+    /// Compare a radix iterator against an ordered iterator
+    fn radix_test_2() {
 
         println!();
         let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
@@ -891,7 +887,7 @@ mod tests {
         println!("{}", test_dist);
 
         let ordered: Vec<(Vec<usize>, f32)> = test_dist.ordered_permutations().take(100).collect();
-        let radix: Vec<(Vec<usize>, f32)> = test_dist.radix_permutations().take(1000).collect();
+        let radix: Vec<(Vec<usize>, f32)> = test_dist.radix_permutations().take(5000).collect();
 
         for (i, (possible_word, word_prob)) in ordered.into_iter().enumerate() {
             if radix.contains(&(possible_word.clone(), word_prob)) {
