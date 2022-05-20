@@ -298,15 +298,6 @@ impl<'a> OrderedPermutationIter<'a> {
             let mut finished = false;
             while !finished {
     
-                //FUUUUUUUUUUCK! GOAT!!! There is a nasty bug that's affecting equal-weight
-                // solutions.  The fix should be to move the below code (commented out)
-                // from above the loop into the loop, so when we're testing a certain letter,
-                // we never deviate from the letter's max value.  But it breaks some other
-                // tests.
-                // if letter_to_advance < letter_count {
-                //     temp_state[letter_to_advance] = tops[letter_to_advance];
-                // }
-    
                 //Increment the adjustments to the next state we want to try
                 //NOTE: It is impossible for the initial starting case (all bottoms) to be the
                 // next sequence element, because it's going to be the current sequence element
@@ -343,57 +334,64 @@ impl<'a> OrderedPermutationIter<'a> {
     
                 if temp_prob > 0.0 && temp_prob < self.current_prob && temp_prob >= highest_prob {
 
-                    //Replace the results with a fresh array
                     if temp_prob > highest_prob {
-
-
-                        //Advance "tops", so we'll find additional equal-weight results
-                        //but first reset "tops" to the original value
-                        for i in 0..letter_count {
-                            
-                            if i == letter_to_advance {
-                                tops[i] = (self.high_water_mark[i]+1).min(BRANCHING_FACTOR);
-                            } else {
-                                tops[i] = (self.high_water_mark[i]).min(BRANCHING_FACTOR);
-                            }
-
-                            if temp_state[i] >= tops[i] {
-                                tops[i] = temp_state[i]+1;
-                                finished = false;
-                            }
-                        }
-
+                        //Replace the results with a fresh array
                         highest_prob = temp_prob;
                         return_val = Some(vec![(temp_state.clone(), highest_prob)]);
-
                     } else {
-                        //We can infer temp_prob == highest_prob if we got here
-
-                        //Advance "tops", so we'll find additional equal-weight results
-                        for i in 0..letter_count {
-                            if temp_state[i] >= tops[i] {
-                                tops[i] = temp_state[i]+1;
-                                finished = false;
-                            }
-                        }
-
-                        //Append to the existing results array, but
-                        //  We never want to add a duplicate
-                        //NOTE: I am REEEEEEEEAAAAAAAAALLLLYYYYYYYYY UNHAPPY with this check
-                        // It just feels to me that a smarter (cheaper) check or reworking of the
-                        // bounds would save us from needing to do this here.  But since exact
-                        // duplicates should be rare in real-world cases, we shouldn't hit this
-                        // often enough to actuall matter much.
-                        let unwrapped_ret = return_val.as_mut().unwrap();
-                        if unwrapped_ret.iter().position(|(element_state, _prob)| *element_state == temp_state).is_none() {
-                            unwrapped_ret.push((temp_state.clone(), highest_prob));
-                        }
+                        //We can infer temp_prob == highest_prob if we got here, so
+                        // append to the results array
+                        return_val.as_mut().unwrap().push((temp_state.clone(), highest_prob));
                     }
                 }
             }
         }
 
+        //See if there are any additional results with the same probability, adjacent to the
+        // results we found
+        if let Some(results) = &mut return_val.as_mut() {
+            let mut new_results = results.clone();
+            for (result, prob) in results.iter() {
+                self.find_adjacent_equal_permutations(result, *prob, &mut new_results);
+            }
+            **results = new_results;
+        }
+
         return_val
+    }
+    fn find_adjacent_equal_permutations(&self, state: &[usize], prob: f32, results: &mut Vec<(Vec<usize>, f32)>) {
+
+        let letter_count = self.dist.letter_count();
+        let mut new_state = state.to_owned();
+        
+        loop {
+
+            new_state[0] += 1;
+            let mut cur_digit = 0;
+            let mut temp_prob = Self::prob_from_state(self.dist, &new_state) as f32;
+
+            while temp_prob < prob {
+
+                new_state[cur_digit] = state[cur_digit];
+                cur_digit += 1;
+
+                if cur_digit == letter_count {
+                    break;
+                }
+
+                new_state[cur_digit] += 1;
+                temp_prob = Self::prob_from_state(self.dist, &new_state) as f32;
+            }
+            
+            if temp_prob == prob {
+                //Check for duplicates, and add this state if it's unique
+                if results.iter().position(|(element_state, _prob)| *element_state == new_state).is_none() {
+                    results.push((new_state.clone(), prob));
+                }
+            } else {
+                break;
+            }
+        }
     }
 }
 
@@ -687,7 +685,7 @@ mod tests {
         println!("{}", test_dist);
 
         //GOAT, temp debug print
-        // for (i, (possible_word, word_prob)) in test_dist.permutations().enumerate() {
+        // for (i, (possible_word, word_prob)) in test_dist.ordered_permutations().enumerate() {
         //     println!("--{}: {:?} {}", i, possible_word, word_prob);
         // }
 
@@ -791,8 +789,8 @@ mod tests {
     fn test_6() {
 
         let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
-        //let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen()); //GOAT, this is the real test
-        let test_dist = LetterDistribution::random(20, 4, &mut rng, |_, _, rng| rng.gen());
+        let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen()); //GOAT, this is the real test
+        //let test_dist = LetterDistribution::random(20, 4, &mut rng, |_, _, rng| rng.gen());
         println!("{}", test_dist);
 
         // Test that a subsequent result isn't more probable than a prior result
