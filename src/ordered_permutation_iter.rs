@@ -1,6 +1,9 @@
 
 use std::cmp::Ordering;
 
+use arrayvec::ArrayVec;
+const MAX_FACTOR_COUNT: usize = 64; //GOAT, this probably belongs in main
+
 pub struct OrderedPermutationIter<'a, T> {
 
     /// The individual distributions we're iterating the permutations of
@@ -62,11 +65,39 @@ impl<'a> OrderedPermutationIter<'a, f32>
     //GOAT, T instead of f32
     fn sorted_state_combined_val(&self, state: &[usize]) -> Option<f32> {
 
-        //GOAT, T instead of f32
-        let factors: Vec<f32> = state.iter()
-            .enumerate()
-            .map(|(slot_idx, sorted_idx)| self.sorted_dists[slot_idx][*sorted_idx].1)
-            .collect();
+        //GOAT, works great, but is stupid slow
+        //-----------------------------
+        // //GOAT, T instead of f32
+        // let factors: Vec<f32> = state.iter()
+        //     .enumerate()
+        //     .map(|(slot_idx, sorted_idx)| self.sorted_dists[slot_idx][*sorted_idx].1)
+        //     .collect();
+
+        // (self.combination_fn)(&factors)
+
+
+        //GOAT, inlining the test function is HUGE.  Like 5x perf
+        //-----------------------------
+        // let mut new_prob: f64 = 1.0;
+        // for (slot_idx, sorted_idx) in state.iter().enumerate() {
+        //     new_prob *= self.sorted_dists[slot_idx][*sorted_idx].1 as f64;
+        // }
+
+        // //return None if prob is below ZERO_THRESHOLD
+        // const ZERO_THRESHOLD: f32 = 0.0000000001;
+        // if new_prob as f32 > ZERO_THRESHOLD {
+        //     Some(new_prob as f32)
+        // } else {
+        //     None
+        // }
+        
+        //From 51 seconds to 12.1 seconds.  But unfortunately not quite the 9 seconds of the
+        // inlined function.  So we're most of the way there, but now let's try an iterator
+        // instead of a slice
+        let mut factors = ArrayVec::<_, MAX_FACTOR_COUNT>::new();
+        for (slot_idx, sorted_idx) in state.iter().enumerate() {
+            factors.push(self.sorted_dists[slot_idx][*sorted_idx].1);
+        }
 
         (self.combination_fn)(&factors)
     }
