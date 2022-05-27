@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+num-traits = "0.2.15"
 arrayvec = "0.7.2"
 fuzzy_rocks = "0.2.1"
 rand = "0.8.0"

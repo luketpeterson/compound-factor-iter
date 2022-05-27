@@ -19,28 +19,21 @@ pub struct OrderedPermutationIter<'a, T> {
     high_water_mark: Vec<usize>,
 
     /// The threshold probability, corresponding to the last returned result
-    current_prob: f32,
+    current_val: T,
 
-    /// A place to stash future results with probs that equal to the last-returned result
-    result_stash: Vec<(Vec<usize>, f32)>,
+    /// A place to stash future results with values that equal to the last-returned result
+    result_stash: Vec<(Vec<usize>, T)>,
 }
 
-//GOAT, T instead of f32
-// impl<'a, T> OrderedPermutationIter<'a, T>
-//     where
-//     T: Copy + PartialOrd, //GOAT, it's likely I want U as the type that's part of the struct def, and not T
-impl<'a> OrderedPermutationIter<'a, f32>
+impl<'a, T> OrderedPermutationIter<'a, T>
+    where
+    T: Copy + PartialOrd + num_traits::Bounded,
 {
-    //GOAT, T instead of f32
-    //pub fn new<E: AsRef<[T]>, F: Fn(&[T]) -> Option<T>>(factor_iter: impl Iterator<Item=E>, combination_fn: &'a F) -> Self {
-    pub fn new<E: AsRef<[f32]>, F: Fn(&[f32]) -> Option<f32>>(factor_iter: impl Iterator<Item=E>, combination_fn: &'a F) -> Self {
+    pub fn new<E: AsRef<[T]>, F: Fn(&[T]) -> Option<T>>(factor_iter: impl Iterator<Item=E>, starting_val: T, combination_fn: &'a F) -> Self {
 
-        //GOAT, T instead of f32
-        //let mut sorted_dists: Vec<Vec<(usize, T)>> = factor_iter
-        let sorted_dists: Vec<Vec<(usize, f32)>> = factor_iter
+        let sorted_dists: Vec<Vec<(usize, T)>> = factor_iter
             .map(|factor_dist| {
-                //GOAT, T instead of f32
-                let mut sorted_elements: Vec<(usize, f32)> = factor_dist.as_ref().iter().cloned().enumerate().collect();
+                let mut sorted_elements: Vec<(usize, T)> = factor_dist.as_ref().iter().cloned().enumerate().collect();
                 sorted_elements.sort_by(|(_idx_a, element_a), (_idx_b, element_b)| element_b.partial_cmp(element_a).unwrap_or(Ordering::Equal));
                 sorted_elements
             })
@@ -53,7 +46,7 @@ impl<'a> OrderedPermutationIter<'a, f32>
             combination_fn,
             state: vec![0; factor_count],
             high_water_mark: vec![0; factor_count],
-            current_prob: 1.0,
+            current_val: starting_val,
             result_stash: vec![],
         }
     }
@@ -62,13 +55,11 @@ impl<'a> OrderedPermutationIter<'a, f32>
     }
     //NOTE: A future optimization is to keep the factors vector in memory rather than
     // rebuilding it every time.
-    //GOAT, T instead of f32
-    fn sorted_state_combined_val(&self, state: &[usize]) -> Option<f32> {
+    fn sorted_state_combined_val(&self, state: &[usize]) -> Option<T> {
 
         //GOAT, works great, but is stupid slow
         //-----------------------------
-        // //GOAT, T instead of f32
-        // let factors: Vec<f32> = state.iter()
+        // let factors: Vec<T> = state.iter()
         //     .enumerate()
         //     .map(|(slot_idx, sorted_idx)| self.sorted_dists[slot_idx][*sorted_idx].1)
         //     .collect();
@@ -116,8 +107,7 @@ impl<'a> OrderedPermutationIter<'a, f32>
 
         // (self.combination_fn)(&mut factors_iter)
     }
-    //GOAT, T instead of f32
-    fn state_to_result(&self) -> Option<(Vec<usize>, f32)> {
+    fn state_to_result(&self) -> Option<(Vec<usize>, T)> {
         
         let result: Vec<usize> = self.state.iter()
             .enumerate()
@@ -131,11 +121,11 @@ impl<'a> OrderedPermutationIter<'a, f32>
     /// probability, that is lower than the prob_threshold.  Returns None if it's impossible to advance
     /// to a non-zero probability.
     /// 
-    fn find_smallest_next_increment(&self) -> Option<Vec<(Vec<usize>, f32)>> {
+    fn find_smallest_next_increment(&self) -> Option<Vec<(Vec<usize>, T)>> {
 
         let factor_count = self.factor_count();
 
-        let mut highest_prob = 0.0;
+        let mut highest_prob = T::min_value();
         let mut return_val = None;
 
         //GOAT TODO: Write up a better explanation of the alforithm overall, once it's fully debugged
@@ -168,7 +158,7 @@ impl<'a> OrderedPermutationIter<'a, f32>
                     }
                     tops[i] = new_bottom; //Temporarily hijacking tops
                     let prob = self.sorted_state_combined_val(&tops);
-                    if prob.is_some() && prob.unwrap() > self.current_prob {
+                    if prob.is_some() && prob.unwrap() > self.current_val {
                         bottoms.push(new_bottom+1);
                         break;
                     } else {
@@ -219,7 +209,7 @@ impl<'a> OrderedPermutationIter<'a, f32>
                 }
     
                 if let Some(temp_prob) = self.sorted_state_combined_val(&temp_state) {
-                    if temp_prob > 0.0 && temp_prob < self.current_prob && temp_prob >= highest_prob {
+                    if temp_prob < self.current_val && temp_prob >= highest_prob {
 
                         if temp_prob > highest_prob {
                             //Replace the results with a fresh array
@@ -247,7 +237,7 @@ impl<'a> OrderedPermutationIter<'a, f32>
 
         return_val
     }
-    fn find_adjacent_equal_permutations(&self, state: &[usize], prob: f32, results: &mut Vec<(Vec<usize>, f32)>) {
+    fn find_adjacent_equal_permutations(&self, state: &[usize], prob: T, results: &mut Vec<(Vec<usize>, T)>) {
 
         let letter_count = self.factor_count();
         let mut new_state = state.to_owned();
@@ -283,9 +273,11 @@ impl<'a> OrderedPermutationIter<'a, f32>
     }
 }
 
-//GOAT, T instead of f32
-impl Iterator for OrderedPermutationIter<'_, f32> {
-    type Item = (Vec<usize>, f32);
+impl<T> Iterator for OrderedPermutationIter<'_, T>
+    where
+    T: Copy + PartialOrd + num_traits::Bounded,
+{
+    type Item = (Vec<usize>, T);
 
     fn next(&mut self) -> Option<Self::Item> {
         
@@ -294,9 +286,8 @@ impl Iterator for OrderedPermutationIter<'_, f32> {
         //If we have some results in the stash, return those first
         if let Some((new_state, new_prob)) = self.result_stash.pop() {
             self.state = new_state;
-            self.current_prob = new_prob;
+            self.current_val = new_prob;
 
-// println!("from_stash {:?} = {}", self.state, self.current_prob); //GOAT, debug print
             return self.state_to_result();
         }
 
@@ -318,7 +309,7 @@ impl Iterator for OrderedPermutationIter<'_, f32> {
             //Return one result from our stash
             let (new_state, new_prob) = self.result_stash.pop().unwrap();
             self.state = new_state;
-            self.current_prob = new_prob;
+            self.current_val = new_prob;
 
             return self.state_to_result();
                 
@@ -332,6 +323,7 @@ impl Iterator for OrderedPermutationIter<'_, f32> {
 
 
 // GOAT,
+//3. Do a test with a function that does more than just multiplying all the factors together
 //4. Do a test for different radixes, i.e. each factor containing different numbers of elements
 
 

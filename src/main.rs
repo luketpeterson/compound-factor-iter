@@ -153,7 +153,7 @@ impl LetterDistribution {
     /// Returns an iterator that will generate the possible strings from a LetterDistribution,
     /// in descending order of probability, along with their probability
     pub fn ordered_permutations(&self) -> OrderedPermutationIter<f32> {
-        OrderedPermutationIter::new(self.letter_probs.iter(), &|probs|{
+        OrderedPermutationIter::new(self.letter_probs.iter(), 1.0, &|probs|{
 
             // NOTE: we perform the arithmetic in 64-bit, even though we only care about a 32-bit
             // result, because we need the value to be very, very stable, or we run the risk of
