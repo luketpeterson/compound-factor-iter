@@ -20,6 +20,9 @@ use rand_pcg::Pcg64;
 /// component probabilities in the order of compound probability.
 /// 
 
+mod ordered_permutation_iter;
+use ordered_permutation_iter::*;
+
 mod radix_permutation_iter;
 use radix_permutation_iter::*;
 
@@ -54,8 +57,8 @@ fn main() {
     println!("{}", test_dist);
 
     //Iterate the permutations, and try looking each one up
-    for (i, (permutation, prob)) in test_dist.radix_permutations().enumerate() {
-    // for (i, (permutation, prob)) in test_dist.ordered_permutations().enumerate() {
+    //for (i, (permutation, prob)) in test_dist.radix_permutations().enumerate() {
+    for (i, (permutation, prob)) in test_dist.ordered_permutations().enumerate() {
         
         let perm_string: String = permutation.into_iter().map(|idx| char::from((idx+97) as u8)).collect();
         
@@ -149,8 +152,25 @@ impl LetterDistribution {
     }
     /// Returns an iterator that will generate the possible strings from a LetterDistribution,
     /// in descending order of probability, along with their probability
-    pub fn ordered_permutations(&self) -> OrderedPermutationIter {
-        OrderedPermutationIter::new(self)
+    pub fn ordered_permutations(&self) -> OrderedPermutationIter<f32> {
+        OrderedPermutationIter::new(self.letter_probs.iter(), &|probs|{
+
+            // NOTE: we perform the arithmetic in 64-bit, even though we only care about a 32-bit
+            // result, because we need the value to be very, very stable, or we run the risk of
+            // ending up in an infinite loop or skipping a result
+            let mut new_prob: f64 = 1.0;
+            for prob in probs.iter() {
+                new_prob *= *prob as f64;
+            }
+    
+            //return None if prob is below ZERO_THRESHOLD
+            const ZERO_THRESHOLD: f32 = 0.0000000001;
+            if new_prob as f32 > ZERO_THRESHOLD {
+                Some(new_prob as f32)
+            } else {
+                None
+            }
+        })
     }
     pub fn radix_permutations(&self) -> RadixPermutationIter {
         RadixPermutationIter::new(self)
@@ -177,267 +197,18 @@ impl LetterDistribution {
         }
 
     }
-}
+    // /// NOTE: we perform the arithmetic in 64-bit, even though we only care about a 32-bit
+    // /// result, because we need the value to be very, very stable, or we run the risk of
+    // /// ending up in an infinite loop or skipping a result
+    // ///
+    // fn compound_probs_from_permutation(&self, perm: &[usize]) -> f64 {
+    //     let mut new_prob = 1.0;
+    //     for (slot_idx, &letter_idx) in perm.iter().enumerate() {
+    //         new_prob *= self.letter_probs[slot_idx][letter_idx] as f64;
+    //     }
 
-pub struct OrderedPermutationIter<'a> {
-
-    /// A reference to the distribution we're iterating over
-    dist: &'a LetterDistribution,
-    
-    /// The current position of the result, as indices into the sorted_letters arrays
-    state: Vec<usize>,
-
-    /// The highest value state has achieved for a given letter
-    high_water_mark: Vec<usize>,
-
-    /// The threshold probability, corresponding to the last returned result
-    current_prob: f32,
-
-    /// A place to stash future results with probs that equal to the last-returned result
-    result_stash: Vec<(Vec<usize>, f32)>,
-}
-
-impl<'a> OrderedPermutationIter<'a> {
-    fn new(dist: &'a LetterDistribution) -> Self {
-
-        let letter_count = dist.letter_count();
-
-        Self {
-            dist,
-            state: vec![0; letter_count],
-            high_water_mark: vec![0; letter_count],
-            current_prob: 1.0,
-            result_stash: vec![],
-        }
-    }
-    fn state_to_result(&self) -> Option<(Vec<usize>, f32)> {
-        
-        let result = self.state.iter()
-            .enumerate()
-            .map(|(slot_idx, sorted_letter_idx)| self.dist.sorted_letters[slot_idx][*sorted_letter_idx])
-            .collect();
-
-        //return None if prob is below ZERO_THRESHOLD
-        const ZERO_THRESHOLD: f32 = 0.0000000001;
-        if self.current_prob > ZERO_THRESHOLD {
-            Some((result, self.current_prob))
-        } else {
-            None
-        }
-    }
-    /// NOTE: we perform the arithmetic in 64-bit, even though we only care about a 32-bit
-    /// result, because we need the value to be very, very stable, or we run the risk of
-    /// ending up in an infinite loop or skipping a result
-    ///
-    fn prob_from_state(dist: &LetterDistribution, state: &[usize]) -> f64 {
-        let mut new_prob = 1.0;
-        for (slot_idx, &sorted_letter_idx) in state.iter().enumerate() {
-
-            let letter_idx = dist.sorted_letters[slot_idx][sorted_letter_idx];
-            new_prob *= dist.letter_probs[slot_idx][letter_idx] as f64;
-        }
-
-        new_prob
-    }
-    /// Searches the frontier around a state, looking for the next state that has the highest overall
-    /// probability, that is lower than the prob_threshold.  Returns None if it's impossible to advance
-    /// to a non-zero probability.
-    /// 
-    fn find_smallest_next_increment(&self) -> Option<Vec<(Vec<usize>, f32)>> {
-
-        let letter_count = self.dist.letter_count();
-
-        let mut highest_prob = 0.0;
-        let mut return_val = None;
-
-        //GOAT TODO: Write up a better explanation of the alforithm overall, once it's fully debugged
-
-        //NOTE: when letter_to_advance == letter_count, that means we don't attempt to advance any letter
-        for letter_to_advance in 0..(letter_count+1) {
-
-            //The "tops" are the highest values each individual letter could possibly have and still reference
-            // the next combination in the sequence
-            let mut tops = Vec::with_capacity(letter_count);
-            for (i , &val) in self.high_water_mark.iter().enumerate() {
-                if i == letter_to_advance {
-                    tops.push((val+1).min(BRANCHING_FACTOR));
-                } else {
-                    tops.push((val).min(BRANCHING_FACTOR));
-                }
-            }
-
-            //Find the "bottoms", i.e. the lowest value each letter could possibly have
-            // given the "tops", without exceeding the probability threshold established by
-            // self.current_prob
-            let mut bottoms = Vec::with_capacity(letter_count);
-            for i in 0..letter_count {
-                let old_top = tops[i];
-                let mut new_bottom = self.state[i];
-                loop {
-                    if new_bottom == 0 {
-                        bottoms.push(0);
-                        break;
-                    }
-                    tops[i] = new_bottom; //Temporarily hijacking tops
-                    let prob = Self::prob_from_state(self.dist, &tops) as f32;
-                    if prob > self.current_prob {
-                        bottoms.push(new_bottom+1);
-                        break;
-                    } else {
-                        new_bottom -= 1;
-                    }
-                }
-                tops[i] = old_top;
-            }
-
-            //We need to check every combination of adjustments between tops and bottoms
-            let mut temp_state = bottoms.clone();
-            if letter_to_advance < letter_count {
-                temp_state[letter_to_advance] = tops[letter_to_advance];
-            }
-            let mut finished = false;
-            while !finished {
-    
-                //Increment the adjustments to the next state we want to try
-                //NOTE: It is impossible for the initial starting case (all bottoms) to be the
-                // next sequence element, because it's going to be the current sequence element
-                // or something earlier
-                let mut cur_letter;
-                if letter_to_advance != 0 {
-                    temp_state[0] += 1;
-                    cur_letter = 0;
-                } else {
-                    temp_state[1] += 1;
-                    cur_letter = 1;
-                }
-
-                //Deal with any rollover caused by the increment above
-                while temp_state[cur_letter] > tops[cur_letter] {
-
-                    temp_state[cur_letter] = bottoms[cur_letter];
-                    cur_letter += 1;
-
-                    //Skip over the letter_to_advance, which we're going to leave pegged to tops
-                    if cur_letter == letter_to_advance {
-                        cur_letter += 1;
-                    }
-
-                    if cur_letter < letter_count {
-                        temp_state[cur_letter] += 1;
-                    } else {
-                        finished = true;
-                        break;
-                    }
-                }
-
-                let temp_prob = Self::prob_from_state(self.dist, &temp_state) as f32;
-    
-                if temp_prob > 0.0 && temp_prob < self.current_prob && temp_prob >= highest_prob {
-
-                    if temp_prob > highest_prob {
-                        //Replace the results with a fresh array
-                        highest_prob = temp_prob;
-                        return_val = Some(vec![(temp_state.clone(), highest_prob)]);
-                    } else {
-                        //We can infer temp_prob == highest_prob if we got here, so
-                        // append to the results array
-                        return_val.as_mut().unwrap().push((temp_state.clone(), highest_prob));
-                    }
-                }
-            }
-        }
-
-        //See if there are any additional results with the same probability, adjacent to the
-        // results we found
-        if let Some(results) = &mut return_val.as_mut() {
-            let mut new_results = results.clone();
-            for (result, prob) in results.iter() {
-                self.find_adjacent_equal_permutations(result, *prob, &mut new_results);
-            }
-            **results = new_results;
-        }
-
-        return_val
-    }
-    fn find_adjacent_equal_permutations(&self, state: &[usize], prob: f32, results: &mut Vec<(Vec<usize>, f32)>) {
-
-        let letter_count = self.dist.letter_count();
-        let mut new_state = state.to_owned();
-        
-        loop {
-
-            new_state[0] += 1;
-            let mut cur_digit = 0;
-            let mut temp_prob = Self::prob_from_state(self.dist, &new_state) as f32;
-
-            while temp_prob < prob {
-
-                new_state[cur_digit] = state[cur_digit];
-                cur_digit += 1;
-
-                if cur_digit == letter_count {
-                    break;
-                }
-
-                new_state[cur_digit] += 1;
-                temp_prob = Self::prob_from_state(self.dist, &new_state) as f32;
-            }
-            
-            if temp_prob == prob {
-                //Check for duplicates, and add this state if it's unique
-                if results.iter().position(|(element_state, _prob)| *element_state == new_state).is_none() {
-                    results.push((new_state.clone(), prob));
-                }
-            } else {
-                break;
-            }
-        }
-    }
-}
-
-impl Iterator for OrderedPermutationIter<'_> {
-    type Item = (Vec<usize>, f32);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        
-        let letter_count = self.dist.letter_probs.len();
-
-        //If we have some results in the stash, return those first
-        if let Some((new_state, new_prob)) = self.result_stash.pop() {
-            self.state = new_state;
-            self.current_prob = new_prob;
-
-// println!("from_stash {:?} = {}", self.state, self.current_prob); //GOAT, debug print
-            return self.state_to_result();        
-        }
-
-        //Find the next configuration with the smallest incremental impact to probability
-        if let Some(new_states) = self.find_smallest_next_increment() {
-        
-            //Advance the high-water mark for all returned states
-            for (new_state, _new_prob) in new_states.iter() {
-                for i in 0..letter_count {
-                    if new_state[i] > self.high_water_mark[i] {
-                        self.high_water_mark[i] = new_state[i];
-                    }
-                }
-            }
-
-            //Stash all the results we got
-            self.result_stash = new_states;
-
-            //Return one result from our stash
-            let (new_state, new_prob) = self.result_stash.pop().unwrap();
-            self.state = new_state;
-            self.current_prob = new_prob;
-
-            return self.state_to_result();
-                
-        } else {
-            //If we couldn't find any letter_slots to advancee, we've reached the end of the iteration
-            return None;
-        }
-    }
+    //     new_prob
+    // }
 }
 
 impl fmt::Display for LetterDistribution {
@@ -790,7 +561,7 @@ mod tests {
 
         let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
         let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen()); //GOAT, this is the real test
-        //let test_dist = LetterDistribution::random(20, 4, &mut rng, |_, _, rng| rng.gen());
+        // let test_dist = LetterDistribution::random(20, 4, &mut rng, |_, _, rng| rng.gen());
         println!("{}", test_dist);
 
         // Test that a subsequent result isn't more probable than a prior result
