@@ -28,7 +28,7 @@ pub struct OrderedPermutationIter<'a, T> {
 //GOAT, T instead of f32
 // impl<'a, T> OrderedPermutationIter<'a, T>
 //     where
-//     T: Clone + PartialOrd, //GOAT, it's likely I want U as the type that's part of the struct def, and not T
+//     T: Copy + PartialOrd, //GOAT, it's likely I want U as the type that's part of the struct def, and not T
 impl<'a> OrderedPermutationIter<'a, f32>
 {
     //GOAT, T instead of f32
@@ -77,6 +77,8 @@ impl<'a> OrderedPermutationIter<'a, f32>
 
 
         //GOAT, inlining the test function is HUGE.  Like 5x perf
+        //Allocating the Vec every time means the test runs in 51 seconds.  Inlining
+        // the closure (code below) means it runs in 9 seconds.
         //-----------------------------
         // let mut new_prob: f64 = 1.0;
         // for (slot_idx, sorted_idx) in state.iter().enumerate() {
@@ -91,15 +93,28 @@ impl<'a> OrderedPermutationIter<'a, f32>
         //     None
         // }
         
+        //GOAT, ArrayVec gets us most of the way there
         //From 51 seconds to 12.1 seconds.  But unfortunately not quite the 9 seconds of the
         // inlined function.  So we're most of the way there, but now let's try an iterator
         // instead of a slice
+        //-----------------------------
         let mut factors = ArrayVec::<_, MAX_FACTOR_COUNT>::new();
         for (slot_idx, sorted_idx) in state.iter().enumerate() {
             factors.push(self.sorted_dists[slot_idx][*sorted_idx].1);
         }
 
         (self.combination_fn)(&factors)
+
+        //GOAT, Trying now with an iterator
+        //OH NO!  In theory this is the simplest, but unfortunately the iterator is passed
+        // as a &mut dyn Iterator<Item=T>, which means we're calling across the &dyn dispatch
+        // every single time next() is called, and the compiler has zero inline ability
+        //-----------------------------
+        // let mut factors_iter = state.iter()
+        //     .enumerate()
+        //     .map(|(slot_idx, sorted_idx)| self.sorted_dists[slot_idx][*sorted_idx].1);
+
+        // (self.combination_fn)(&mut factors_iter)
     }
     //GOAT, T instead of f32
     fn state_to_result(&self) -> Option<(Vec<usize>, f32)> {
