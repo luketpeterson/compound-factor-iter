@@ -14,19 +14,26 @@ pub struct RadixPermutationIter<'a, T> {
     /// A function capable of combining factors
     combination_fn: &'a dyn Fn(&[T]) -> Option<T>,
 
-    //GOAT, Update this comment to capture the idea that there are multiple ordering regimes
-    // that switch as the ordering progresses.
-    /// A sorted list of the probabilities of the second-place components, in order to
-    ///  hit results that include them sooner in the iteration.
-    /// NOTE: There is a tradeoff between the word length and how many components to
-    ///  consider.  For example, for a 30-letter word, we're looking at a billion
-    ///  results before we've even covered the combinitorics probabilities of the
-    ///  most and second most likely letters.  So for above a certain length, we want
-    ///  to only consider second place values.  But for a 10-letter word, we'd get
-    ///  through the top-two possibilities in only 1000 iterations, so we might want
-    ///  to consider a sum of places 2 & 3, or possibly places 2-4.  It all comes
-    ///  down the the number of letters vs. the number of iterations that can be
-    ///  realistically considered.
+    /// A set of sorted lists of precedence for each factor, each representing an
+    ///  ordering regime.  The idea is that the best ordering regime changes as the
+    ///  iteration progresses.
+    /// 
+    /// - Ordering Regime 0
+    /// In the beginning, the factors that have the least influence on the combined value
+    /// (move the combined value the least from the maximum), are the factors with the smallest
+    /// difference between their maximum value and their second-highest value.
+    /// 
+    /// - Ordering Regime 1
+    /// Once all permutations of the highest and second-highest values for all factors have
+    /// been considered, Ordering Regime 1 is based on the absolute value of the second-
+    /// highest element.  This is because factors in this regime may take on values from their
+    /// highest, second-highest, and third-highest elements, so we want to postpone the small
+    /// third-highest elements to later in the sequence.
+    /// 
+    /// - Ordering Regime 2
+    /// The final ordering that prevails for the rest of the iteration is based on the sum of
+    /// the top-3 elements for every factor.
+    /// 
     orderings: Vec<Vec<usize>>,
 
     /// The current position of the result, as indices into the sorted_letters arrays
@@ -109,7 +116,7 @@ impl<'a, T> RadixPermutationIter<'a, T>
 
                 let mut l = 1;
                 let mut prob = T::zero();
-                while l < factor_count && l < 3 {
+                while l < factor_count && l < 3 && l < sorted_dists[i].len() {
                     prob = prob + sorted_dists[i][l].1;
                     l += 1;
                 }
@@ -144,8 +151,15 @@ impl<'a, T> RadixPermutationIter<'a, T>
 
         let mut permuted_state = vec![0; self.factor_count()];
         for (i, &idx) in self.orderings[ordering_idx].iter().enumerate() {
-            permuted_state[i] = self.state[idx];
+            permuted_state[idx] = self.state[i];
         }
+
+
+//FUUUUUCKCKCK GOAT.  We need to fix this several ways...
+//1. When we step forward the state, we need to be cognizant of the number of elements for a given factor. 
+//2. When we switch to a different regime, we need to premute the state because we can't assume it's
+// uniform anymore
+//
 
         //Create an array of factors from the permuted state
         //TODO: We could save a Vec allocation by merging the loops above and below this one

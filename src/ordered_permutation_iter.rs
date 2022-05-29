@@ -316,18 +316,15 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
     }
 }
 
-
-
 // GOAT,
 //3. Do a test with a function that does more than just multiplying all the factors together
 
 //a. search for the word "letter", replace with "factor"
 //b. search for the word "prob", replace with "element"
 
-//Update the radix_permutation_iter to allow generic data types and a combine closure, etc.
-//Implement some of the new tests for radix_iter as well
-
 //Get rid of the need to supply order_perm_iter with a max_val, by adding an epoch to the val at 0,0,0,0
+
+//Dust off that simplistic database for words, to make a word_db lookup test & example
 
 //Make a ReadMe
 //Future needs:
@@ -335,3 +332,10 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 //Reversible.
 //Sensitiveity map for radix iter.
 
+//Improved Radix Iterator: I have a suspicion that a better algorithm exists that is able to
+// systematically traverse the factor-space while causing the sum-of-sorted-factor-places to
+// increase monotonically, and not miss any permutations.  This would get rid of the largest
+// source of out-of-order results for the radix iterator, which is the rollover behavior,
+// where incrementing one factor resets many factors back to a much lower position.
+//
+//

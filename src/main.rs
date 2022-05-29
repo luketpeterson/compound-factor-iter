@@ -219,7 +219,7 @@ impl LetterDistribution {
 
 impl fmt::Display for LetterDistribution {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "     -1-    -2-    -3-    -4-    -5-    -6-    -7-    -8-    -9-   -10-   -11-   -12-")?;
+        writeln!(f, "     -0-    -1-    -2-    -3-    -4-    -5-    -6-    -7-    -8-    -9-    -10-   -11-")?;
         for i in 0..BRANCHING_FACTOR {
             write!(f, "{} - ", char::from_u32((i+97) as u32).unwrap())?;
             for letter_prob in self.letter_probs.iter() {
@@ -594,6 +594,15 @@ mod tests {
             test_dist.push(inner_dist);
         }
 
+        println!("    -1-  -2-  -3-  -4-");
+        for i in 0..4 {
+            print!("{} -", i);
+            for inner_dist in test_dist.iter() {
+                print!("{:>4} ", inner_dist[i]);
+            }
+            println!("");
+        }
+
         let perm_iter = OrderedPermutationIter::new(test_dist.iter(), u32::MAX, &|products|{
 
             let mut new_product: u32 = 1;
@@ -729,106 +738,113 @@ mod tests {
     }
 
     #[test]
-    /// Compare a radix iterator against an ordered iterator
+    /// Compare a radix iterator against an ordered iterator. For this particular config should,
+    /// the top 100 radix results should contain all of the top 30 ordered results.  However,
+    /// this ratio is not constant / linear.  Roughly it seems it's more like a square relationship,
+    /// where the number of radix results needed to be certain you have all ordered results is
+    /// proportional to the square of the number of ordered results.
     fn radix_test_2() {
 
         println!();
         let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
-        let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen()); //GOAT, this is the real test
-        //let test_dist = LetterDistribution::random(23, 4, &mut rng, |_, _, rng| rng.gen());
+        let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen());
         println!("{}", test_dist);
 
-        let ordered: Vec<(Vec<usize>, f32)> = test_dist.ordered_permutations().take(100).collect();
-        let radix: Vec<(Vec<usize>, f32)> = test_dist.radix_permutations().take(5000).collect();
+        let ordered: Vec<(Vec<usize>, f32)> = test_dist.ordered_permutations().take(30).collect();
+        let radix: Vec<(Vec<usize>, f32)> = test_dist.radix_permutations().take(100).collect();
 
+        // let ordered: Vec<(Vec<usize>, f32)> = test_dist.ordered_permutations().take(3000).collect();
+        // let radix: Vec<(Vec<usize>, f32)> = test_dist.radix_permutations().take(1000000).collect();
+
+        let mut no_count = 0;
         for (i, (possible_word, word_prob)) in ordered.into_iter().enumerate() {
             if radix.contains(&(possible_word.clone(), word_prob)) {
                 println!("YES --{}: {:?} {}", i, possible_word, word_prob);
             } else {
                 println!("No --{}: {:?} {}", i, possible_word, word_prob);
+                no_count += 1;
             }
         }
+
+        assert!(no_count < 1);
     }
 
-    // #[test]
-    // /// A copy of test_7, except using the radix iterator
-    // fn radix_test_3() {
-    //     let mut rng = Pcg64::seed_from_u64(1);
-    //     let mut test_dist: Vec<Vec<u32>> = vec![];
-    //     for _ in 0..4 {
-    //         let mut inner_dist = vec![];
-    //         for _ in 0..4 {
-    //             inner_dist.push(rng.gen_range(0..256));
-    //         }
-    //         test_dist.push(inner_dist);
-    //     }
+    #[test]
+    /// A copy of test_7, except using the radix iterator
+    fn radix_test_3() {
+        let mut rng = Pcg64::seed_from_u64(1);
+        let mut test_dist: Vec<Vec<u32>> = vec![];
+        for _ in 0..4 {
+            let mut inner_dist = vec![];
+            for _ in 0..4 {
+                inner_dist.push(rng.gen_range(0..256));
+            }
+            test_dist.push(inner_dist);
+        }
 
-    //     let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
+        println!("    -1-  -2-  -3-  -4-");
+        for i in 0..4 {
+            print!("{} -", i);
+            for inner_dist in test_dist.iter() {
+                print!("{:>4} ", inner_dist[i]);
+            }
+            println!("");
+        }
 
-    //         let mut new_product: u32 = 1;
-    //         for product in products.iter() {
-    //             new_product *= *product;
-    //         }
+        let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
+
+            let mut new_product: u32 = 1;
+            for product in products.iter() {
+                new_product *= *product;
+            }
     
-    //         Some(new_product)
-    //     });
+            Some(new_product)
+        });
 
-    //     let mut highest_product = u32::MAX;
-    //     let mut perm_cnt = 0;
-    //     for (i, (perm, product)) in perm_iter.enumerate() {
-    //         println!("--{}: {:?} {}", i, perm, product);
-    //         if product > highest_product {
-    //             println!("ERROR! i={}, {} > {}", i, product, highest_product);
-    //             assert!(false);
-    //         }
-    //         highest_product = product;
-    //         perm_cnt += 1;
-    //     }
-    //     assert_eq!(perm_cnt, 256);
-    // }
+        let mut perm_cnt = 0;
+        for (i, (perm, product)) in perm_iter.enumerate() {
+            println!("--{}: {:?} {}", i, perm, product);
+            perm_cnt += 1;
+        }
+        assert_eq!(perm_cnt, 256);
+    }
 
-    // #[test]
-    // /// A copy of test_8, except using the radix iterator
-    // fn radix_test_4() {
-    //     let mut rng = Pcg64::seed_from_u64(3);
-    //     let mut test_dist: Vec<Vec<u32>> = vec![];
-    //     for _ in 0..3 {
-    //         let dist_elements = rng.gen_range(1..8);
-    //         let mut inner_dist = Vec::with_capacity(dist_elements);
-    //         for _ in 0..dist_elements {
-    //             inner_dist.push(rng.gen_range(0..256));
-    //         }
-    //         test_dist.push(inner_dist);
-    //     }
+    #[test]
+    /// A copy of test_8, except using the radix iterator
+    fn radix_test_4() {
+        let mut rng = Pcg64::seed_from_u64(3);
+        let mut test_dist: Vec<Vec<u32>> = vec![];
+        for _ in 0..3 {
+            let dist_elements = rng.gen_range(1..8);
+            let mut inner_dist = Vec::with_capacity(dist_elements);
+            for _ in 0..dist_elements {
+                inner_dist.push(rng.gen_range(0..256));
+            }
+            test_dist.push(inner_dist);
+        }
 
-    //     let factor_element_counts: Vec<usize> = test_dist.iter().map(|inner| inner.len()).collect();
-    //     let mut expected_perm_count = 1;
-    //     factor_element_counts.iter().for_each(|cnt| expected_perm_count *= cnt);
-    //     println!("\nfactor_element_counts {:?}", factor_element_counts);
-    //     println!("expected_perm_count {}", expected_perm_count);
+        let factor_element_counts: Vec<usize> = test_dist.iter().map(|inner| inner.len()).collect();
+        let mut expected_perm_count = 1;
+        factor_element_counts.iter().for_each(|cnt| expected_perm_count *= cnt);
+        println!("\nfactor_element_counts {:?}", factor_element_counts);
+        println!("expected_perm_count {}", expected_perm_count);
 
-    //     let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
+        let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
 
-    //         let mut new_product: u32 = 1;
-    //         for product in products.iter() {
-    //             new_product *= *product;
-    //         }
+            let mut new_product: u32 = 1;
+            for product in products.iter() {
+                new_product *= *product;
+            }
     
-    //         Some(new_product)
-    //     });
+            Some(new_product)
+        });
 
-    //     let mut highest_product = u32::MAX;
-    //     let mut perm_cnt = 0;
-    //     for (i, (perm, product)) in perm_iter.enumerate() {
-    //         println!("--{}: {:?} {}", i, perm, product);
-    //         if product > highest_product {
-    //             println!("ERROR! i={}, {} > {}", i, product, highest_product);
-    //             assert!(false);
-    //         }
-    //         highest_product = product;
-    //         perm_cnt += 1;
-    //     }
-    //     assert_eq!(perm_cnt, expected_perm_count);
-    // }
+        let mut perm_cnt = 0;
+        for (i, (perm, product)) in perm_iter.enumerate() {
+            println!("--{}: {:?} {}", i, perm, product);
+            perm_cnt += 1;
+        }
+        assert_eq!(perm_cnt, expected_perm_count);
+    }
 
 }
