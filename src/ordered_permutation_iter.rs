@@ -92,13 +92,21 @@ impl<'a, T> OrderedPermutationIter<'a, T>
 
             //The "tops" are the highest values each individual letter could possibly have and still reference
             // the next combination in the sequence
+            let mut skip_letter = false;
             let mut tops = Vec::with_capacity(factor_count);
             for (i , &val) in self.high_water_mark.iter().enumerate() {
                 if i == letter_to_advance {
-                    tops.push((val+1).min(self.sorted_dists[i].len()));
+                    if val+1 < self.sorted_dists[i].len() {
+                        tops.push(val+1);
+                    } else {
+                        skip_letter = true;
+                    }
                 } else {
-                    tops.push((val).min(self.sorted_dists[i].len()));
+                    tops.push(val);
                 }
+            }
+            if skip_letter {
+                continue;
             }
 
             //Find the "bottoms", i.e. the lowest value each letter could possibly have
@@ -143,11 +151,15 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                 let mut cur_letter;
                 if letter_to_advance != 0 {
                     temp_state[0] += 1;
-                    temp_factors[0] = self.sorted_dists[0][temp_state[0]].1;
+                    if temp_state[0] < self.sorted_dists[0].len() {
+                        temp_factors[0] = self.sorted_dists[0][temp_state[0]].1;
+                    }
                     cur_letter = 0;
                 } else {
                     temp_state[1] += 1;
-                    temp_factors[1] = self.sorted_dists[1][temp_state[1]].1;
+                    if temp_state[1] < self.sorted_dists[1].len() {
+                        temp_factors[1] = self.sorted_dists[1][temp_state[1]].1;
+                    }
                     cur_letter = 1;
                 }
 
@@ -165,7 +177,9 @@ impl<'a, T> OrderedPermutationIter<'a, T>
 
                     if cur_letter < factor_count {
                         temp_state[cur_letter] += 1;
-                        temp_factors[cur_letter] = self.sorted_dists[cur_letter][temp_state[cur_letter]].1;
+                        if temp_state[cur_letter] < self.sorted_dists[cur_letter].len() {
+                            temp_factors[cur_letter] = self.sorted_dists[cur_letter][temp_state[cur_letter]].1;
+                        }
                     } else {
                         finished = true;
                         break;
@@ -201,6 +215,10 @@ impl<'a, T> OrderedPermutationIter<'a, T>
 
         return_val
     }
+    //An Adjacent Permutation is defined as a permutation that can be created by adding 1 to one
+    // factor.  This function will find all adjacent permutations from the supplied state, with a
+    // value equal to the supplied "prob" argument.  It will also find the equal permutations from
+    // all found permutations, recursively.
     fn find_adjacent_equal_permutations(&self, state: &[usize], prob: T, results: &mut Vec<(Vec<usize>, T)>) {
 
         let letter_count = self.factor_count();
@@ -208,12 +226,22 @@ impl<'a, T> OrderedPermutationIter<'a, T>
         
         loop {
 
+            //Increment the state by 1 and get the new value
             new_state[0] += 1;
             let mut cur_digit = 0;
-            let factors = self.factors_from_state(&new_state);
-            let mut temp_prob = self.execute_combine_fn(&factors);
+            let mut temp_prob = if new_state[cur_digit] < self.sorted_dists[cur_digit].len() {
+                let factors = self.factors_from_state(&new_state);
+                self.execute_combine_fn(&factors)
+            } else {
+                None
+            };
 
-            while temp_prob.is_some() && temp_prob.unwrap() < prob {
+            //Deal with the rollover caused by the previous increment
+            //NOTE: This loop has two continuing criteria. 1.) If we must roll over because
+            // we've incremented one factor to the end, and 2.) If the new combined value is too
+            // small, indicating the factor shouldn't be considered in an equal permutation
+            while new_state[cur_digit] == self.sorted_dists[cur_digit].len()
+                || (temp_prob.is_some() && temp_prob.unwrap() < prob) {
 
                 new_state[cur_digit] = state[cur_digit];
                 cur_digit += 1;
@@ -223,8 +251,10 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                 }
 
                 new_state[cur_digit] += 1;
-                let factors = self.factors_from_state(&new_state);
-                temp_prob = self.execute_combine_fn(&factors);
+                if new_state[cur_digit] < self.sorted_dists[cur_digit].len() {
+                    let factors = self.factors_from_state(&new_state);
+                    temp_prob = self.execute_combine_fn(&factors);
+                }
             }
             
             if temp_prob.is_some() && temp_prob.unwrap() == prob {
@@ -297,6 +327,8 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 //b. search for the word "prob", replace with "element"
 
 //Make a ReadMe
+//Future needs:
+//High performance for equal-path
 //Reversible.
 //Sensitiveity map for radix iter.
 

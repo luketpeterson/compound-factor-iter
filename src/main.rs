@@ -163,9 +163,7 @@ impl LetterDistribution {
                 new_prob *= *prob as f64;
             }
     
-            //return None if prob is below ZERO_THRESHOLD
-            const ZERO_THRESHOLD: f32 = 0.0000000001;
-            if new_prob as f32 > ZERO_THRESHOLD {
+            if new_prob as f32 > 0.0 {
                 Some(new_prob as f32)
             } else {
                 None
@@ -455,11 +453,6 @@ mod tests {
         println!("Testing:");
         println!("{}", test_dist);
 
-        //GOAT, temp debug print
-        // for (i, (possible_word, word_prob)) in test_dist.ordered_permutations().enumerate() {
-        //     println!("--{}: {:?} {}", i, possible_word, word_prob);
-        // }
-
         let results: Vec<(Vec<usize>, f32)> = test_dist.ordered_permutations().collect();
         for (i, (possible_word, word_prob)) in results.iter().enumerate() {
             println!("--{}: {:?} {}", i, possible_word, word_prob);
@@ -577,6 +570,88 @@ mod tests {
             highest_prob = word_prob;
         }
         println!("Total Distribution Prob Coverage: {}", total_prob);
+    }
+
+    #[test]
+    /// A distribution with random values, but an exhaustible number of possible permutations,
+    /// in order to test boundary conditions
+    fn test_7() {
+        let mut rng = Pcg64::seed_from_u64(1);
+        let mut test_dist: Vec<Vec<u32>> = vec![];
+        for _ in 0..4 {
+            let mut inner_dist = vec![];
+            for _ in 0..4 {
+                inner_dist.push(rng.gen_range(0..256));
+            }
+            test_dist.push(inner_dist);
+        }
+
+        let perm_iter = OrderedPermutationIter::new(test_dist.iter(), u32::MAX, &|products|{
+
+            let mut new_product: u32 = 1;
+            for product in products.iter() {
+                new_product *= *product;
+            }
+    
+            Some(new_product)
+        });
+
+        let mut highest_product = u32::MAX;
+        let mut perm_cnt = 0;
+        for (i, (perm, product)) in perm_iter.enumerate() {
+            println!("--{}: {:?} {}", i, perm, product);
+            if product > highest_product {
+                println!("ERROR! i={}, {} > {}", i, product, highest_product);
+                assert!(false);
+            }
+            highest_product = product;
+            perm_cnt += 1;
+        }
+        assert_eq!(perm_cnt, 256);
+    }
+
+    #[test]
+    /// A distribution with an uneven number of elements in each factor
+    fn test_8() {
+        let mut rng = Pcg64::seed_from_u64(3);
+        let mut test_dist: Vec<Vec<u32>> = vec![];
+        for _ in 0..3 {
+            let dist_elements = rng.gen_range(1..8);
+            let mut inner_dist = Vec::with_capacity(dist_elements);
+            for _ in 0..dist_elements {
+                inner_dist.push(rng.gen_range(0..256));
+            }
+            test_dist.push(inner_dist);
+        }
+
+        let factor_element_counts: Vec<usize> = test_dist.iter().map(|inner| inner.len()).collect();
+        let mut expected_perm_count = 1;
+        factor_element_counts.iter().for_each(|cnt| expected_perm_count *= cnt);
+        println!("\nfactor_element_counts {:?}", factor_element_counts);
+        println!("expected_perm_count {}", expected_perm_count);
+
+        let perm_iter = OrderedPermutationIter::new(test_dist.iter(), u32::MAX, &|products|{
+
+            let mut new_product: u32 = 1;
+            for product in products.iter() {
+                new_product *= *product;
+            }
+    
+            Some(new_product)
+        });
+
+        let mut highest_product = u32::MAX;
+        let mut perm_cnt = 0;
+        for (i, (perm, product)) in perm_iter.enumerate() {
+            println!("--{}: {:?} {}", i, perm, product);
+            if product > highest_product {
+                println!("ERROR! i={}, {} > {}", i, product, highest_product);
+                assert!(false);
+            }
+            highest_product = product;
+            perm_cnt += 1;
+        }
+        assert_eq!(perm_cnt, expected_perm_count);
     }
 
     //TODO: New test idea
