@@ -1,15 +1,18 @@
 
-use crate::*;
+use std::cmp::Ordering;
 
 /// A fast permutation iterator based on traversal through a mixed-radix space.
 /// This is much much faster than the ordered search, although it may return
 /// some results out of order.
 /// 
 
-pub struct RadixPermutationIter<'a> {
+pub struct RadixPermutationIter<'a, T> {
 
-    /// A reference to the distribution we're iterating over
-    dist: &'a LetterDistribution,
+    /// The individual distributions we're iterating the permutations of
+    sorted_dists: Vec<Vec<(usize, T)>>,
+
+    /// A function capable of combining factors
+    combination_fn: &'a dyn Fn(&[T]) -> Option<T>,
 
     //GOAT, Update this comment to capture the idea that there are multiple ordering regimes
     // that switch as the ordering progresses.
@@ -34,14 +37,33 @@ pub struct RadixPermutationIter<'a> {
     /// relatively high (improbable) values.
     max_digit: usize,
 
+    /// The maximum value for the digit with the most elements
+    global_max_digit: usize,
+
     /// Initialization is a degenerate case
     new_iter: bool,
 }
 
-impl<'a> RadixPermutationIter<'a> {
-    pub fn new(dist: &'a LetterDistribution) -> Self {
+impl<'a, T> RadixPermutationIter<'a, T> 
+    where
+    T: Copy + PartialOrd + num_traits::Bounded + num_traits::Zero + core::ops::Sub<Output=T>,
+{
+    pub fn new<E: AsRef<[T]>, F: Fn(&[T]) -> Option<T>>(factor_iter: impl Iterator<Item=E>, combination_fn: &'a F) -> Self {
 
-        let letter_count = dist.letter_count();
+        let mut global_max_digit = 0;
+        let sorted_dists: Vec<Vec<(usize, T)>> = factor_iter
+            .map(|factor_dist| {
+                let mut sorted_elements: Vec<(usize, T)> = factor_dist.as_ref().iter().cloned().enumerate().collect();
+                sorted_elements.sort_by(|(_idx_a, element_a), (_idx_b, element_b)| element_b.partial_cmp(element_a).unwrap_or(Ordering::Equal));
+                
+                if sorted_elements.len()-1 > global_max_digit {
+                    global_max_digit = sorted_elements.len()-1;
+                }
+                sorted_elements
+            })
+            .collect();
+
+        let factor_count = sorted_dists.len();
 
         let mut orderings = Vec::with_capacity(3);
         //Before we make it to [1, 1, 1, 1, 1, ...]
@@ -49,13 +71,10 @@ impl<'a> RadixPermutationIter<'a> {
             //NOTE: It seems the best results on the nastiest distributions, i.e. with
             //  the most factors, come from establishing ordering based on the
             //  difference between the top and second places.
-            let mut ordering = Vec::with_capacity(letter_count);
-            for i in 0..letter_count {                    
-                let idx_0 = dist.sorted_letters[i][0];
-                let prob_0 = dist.letter_probs[i][idx_0];
-    
-                let idx_1 = dist.sorted_letters[i][1];
-                let prob_1 = dist.letter_probs[i][idx_1];
+            let mut ordering = Vec::with_capacity(factor_count);
+            for i in 0..factor_count {                    
+                let prob_0 = sorted_dists[i][0].1;    
+                let prob_1 = sorted_dists[i][1].1;
     
                 ordering.push((prob_0 - prob_1, i));
             }
@@ -69,10 +88,9 @@ impl<'a> RadixPermutationIter<'a> {
         orderings.push({
             //NOTE: For moderate distributions, the best results come from considering
             // the second-place value
-            let mut ordering = Vec::with_capacity(letter_count);
-            for i in 0..letter_count {        
-                let idx = dist.sorted_letters[i][1];
-                let prob = dist.letter_probs[i][idx];
+            let mut ordering = Vec::with_capacity(factor_count);
+            for i in 0..factor_count {        
+                let prob = sorted_dists[i][1].1;
     
                 ordering.push((prob, i));
             }
@@ -86,15 +104,14 @@ impl<'a> RadixPermutationIter<'a> {
             //NOTE: For distributions with a small number of factors, it really shouldn't
             // matter much because we can easily iterate the whole set, but we get better
             // results considering the second, third, etc. (up to 3 in this case)
-            let mut ordering = Vec::with_capacity(letter_count);
-            for i in 0..letter_count {        
+            let mut ordering = Vec::with_capacity(factor_count);
+            for i in 0..factor_count {        
 
                 let mut l = 1;
-                let mut prob = 0.0;
-                while l < letter_count && l < 3 {
-                    let idx = dist.sorted_letters[i][l];
-                    prob += dist.letter_probs[i][idx];
-                    l += 1;  
+                let mut prob = T::zero();
+                while l < factor_count && l < 3 {
+                    prob = prob + sorted_dists[i][l].1;
+                    l += 1;
                 }
     
                 ordering.push((prob, i));
@@ -105,59 +122,50 @@ impl<'a> RadixPermutationIter<'a> {
         });
 
         Self {
-            dist,
+            sorted_dists,
+            combination_fn,
             orderings,
-            state: vec![0; letter_count],
+            state: vec![0; factor_count],
             max_digit: 1,
+            global_max_digit,
             new_iter: true,
         }
     }
-    //TODO: unify this with OrderedPermutationIter
-    fn state_to_result(&self) -> Option<(Vec<usize>, f32)> {
+    pub fn factor_count(&self) -> usize {
+        self.sorted_dists.len()
+    }
+    fn execute_combine_fn(&self, factors: &[T]) -> Option<T> {
+        (self.combination_fn)(&factors)
+    }
+    fn state_to_result(&self) -> Option<(Vec<usize>, T)> {
 
+        //Which ordering we use depends on how far into the sequence we are
         let ordering_idx = (self.max_digit-1).min(2);
 
-        let mut permuted_state = vec![0; self.dist.letter_count()];
+        let mut permuted_state = vec![0; self.factor_count()];
         for (i, &idx) in self.orderings[ordering_idx].iter().enumerate() {
             permuted_state[i] = self.state[idx];
         }
 
-        let prob = Self::prob_from_state(self.dist, &permuted_state) as f32;
+        //Create an array of factors from the permuted state
+        //TODO: We could save a Vec allocation by merging the loops above and below this one
+        let mut factors = Vec::with_capacity(self.factor_count());
+        for (slot_idx, sorted_idx) in permuted_state.iter().enumerate() {
+            factors.push(self.sorted_dists[slot_idx][*sorted_idx].1);
+        }
 
         let result = permuted_state.iter()
             .enumerate()
-            .map(|(slot_idx, sorted_letter_idx)| {
-                self.dist.sorted_letters[slot_idx][*sorted_letter_idx]
-            })
+            .map(|(slot_idx, sorted_letter_idx)| self.sorted_dists[slot_idx][*sorted_letter_idx].0)
             .collect();
 
-        //return None if prob is below ZERO_THRESHOLD
-        const ZERO_THRESHOLD: f32 = 0.0000000001;
-        if prob > ZERO_THRESHOLD {
-            Some((result, prob))
-        } else {
-            None
-        }
-    }
-    //TODO: unify this with OrderedPermutationIter
-    /// NOTE: we perform the arithmetic in 64-bit, even though we only care about a 32-bit
-    /// result, because we need the value to be very, very stable, or we run the risk of
-    /// ending up in an infinite loop or skipping a result
-    ///
-    fn prob_from_state(dist: &LetterDistribution, state: &[usize]) -> f64 {
-        let mut new_prob = 1.0;
-        for (slot_idx, &sorted_letter_idx) in state.iter().enumerate() {
-
-            let letter_idx = dist.sorted_letters[slot_idx][sorted_letter_idx];
-            new_prob *= dist.letter_probs[slot_idx][letter_idx] as f64;
-        }
-
-        new_prob
+        self.execute_combine_fn(&factors)
+            .map(|combined_val| (result, combined_val))
     }
 
-    fn step(&mut self) -> (bool, Option<(Vec<usize>, f32)>) {
+    fn step(&mut self) -> (bool, Option<(Vec<usize>, T)>) {
 
-        let letter_count = self.dist.letter_count();
+        let factor_count = self.factor_count();
 
         //TODO, if a component reaches the zero threshold then that is the effective max_digit
         // for that component
@@ -170,10 +178,10 @@ impl<'a> RadixPermutationIter<'a> {
             self.state[cur_digit] = 0;
             cur_digit += 1;
 
-            if cur_digit < letter_count {
+            if cur_digit < factor_count {
                 self.state[cur_digit] += 1;
             } else {
-                if self.max_digit < BRANCHING_FACTOR-1 {
+                if self.max_digit < self.global_max_digit {
                     self.max_digit += 1;
                     cur_digit = 0;
                 } else {
@@ -197,8 +205,11 @@ impl<'a> RadixPermutationIter<'a> {
     }
 }
 
-impl Iterator for RadixPermutationIter<'_> {
-    type Item = (Vec<usize>, f32);
+impl<T> Iterator for RadixPermutationIter<'_, T>
+    where
+    T: Copy + PartialOrd + num_traits::Bounded + num_traits::Zero + core::ops::Sub<Output=T>,
+{
+    type Item = (Vec<usize>, T);
 
     fn next(&mut self) -> Option<Self::Item> {
 

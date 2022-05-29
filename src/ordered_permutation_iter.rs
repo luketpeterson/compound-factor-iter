@@ -320,11 +320,14 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 
 // GOAT,
 //3. Do a test with a function that does more than just multiplying all the factors together
-//4. Do a test for different radixes, i.e. each factor containing different numbers of elements
-
 
 //a. search for the word "letter", replace with "factor"
 //b. search for the word "prob", replace with "element"
+
+//Update the radix_permutation_iter to allow generic data types and a combine closure, etc.
+//Implement some of the new tests for radix_iter as well
+
+//Get rid of the need to supply order_perm_iter with a max_val, by adding an epoch to the val at 0,0,0,0
 
 //Make a ReadMe
 //Future needs:

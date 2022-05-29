@@ -153,6 +153,10 @@ impl LetterDistribution {
     /// Returns an iterator that will generate the possible strings from a LetterDistribution,
     /// in descending order of probability, along with their probability
     pub fn ordered_permutations(&self) -> OrderedPermutationIter<f32> {
+        //PERF NOTE: Although the code in this closure is line-for-line IDENTICAL to the code in
+        // Self::compound_probs, having this closure declared inline like this is about 15% faster.
+        // My guess is that the compiler turns on some optimizations for inline closures that aren't
+        // used when the function is declared elsewhere.
         OrderedPermutationIter::new(self.letter_probs.iter(), 1.0, &|probs|{
 
             // NOTE: we perform the arithmetic in 64-bit, even though we only care about a 32-bit
@@ -170,8 +174,8 @@ impl LetterDistribution {
             }
         })
     }
-    pub fn radix_permutations(&self) -> RadixPermutationIter {
-        RadixPermutationIter::new(self)
+    pub fn radix_permutations(&self) -> RadixPermutationIter<f32> {
+        RadixPermutationIter::new(self.letter_probs.iter(), &Self::compound_probs)
     }
     fn normalize_and_sort(&mut self) {
 
@@ -195,18 +199,22 @@ impl LetterDistribution {
         }
 
     }
-    // /// NOTE: we perform the arithmetic in 64-bit, even though we only care about a 32-bit
-    // /// result, because we need the value to be very, very stable, or we run the risk of
-    // /// ending up in an infinite loop or skipping a result
-    // ///
-    // fn compound_probs_from_permutation(&self, perm: &[usize]) -> f64 {
-    //     let mut new_prob = 1.0;
-    //     for (slot_idx, &letter_idx) in perm.iter().enumerate() {
-    //         new_prob *= self.letter_probs[slot_idx][letter_idx] as f64;
-    //     }
+    fn compound_probs(probs: &[f32]) -> Option<f32> {
 
-    //     new_prob
-    // }
+        // NOTE: we perform the arithmetic in 64-bit, even though we only care about a 32-bit
+        // result, because we need the value to be very, very stable, or we run the risk of
+        // ending up in an infinite loop or skipping a result
+        let mut new_prob: f64 = 1.0;
+        for prob in probs.iter() {
+            new_prob *= *prob as f64;
+        }
+
+        if new_prob as f32 > 0.0 {
+            Some(new_prob as f32)
+        } else {
+            None
+        }
+    }
 }
 
 impl fmt::Display for LetterDistribution {
@@ -741,5 +749,86 @@ mod tests {
             }
         }
     }
+
+    // #[test]
+    // /// A copy of test_7, except using the radix iterator
+    // fn radix_test_3() {
+    //     let mut rng = Pcg64::seed_from_u64(1);
+    //     let mut test_dist: Vec<Vec<u32>> = vec![];
+    //     for _ in 0..4 {
+    //         let mut inner_dist = vec![];
+    //         for _ in 0..4 {
+    //             inner_dist.push(rng.gen_range(0..256));
+    //         }
+    //         test_dist.push(inner_dist);
+    //     }
+
+    //     let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
+
+    //         let mut new_product: u32 = 1;
+    //         for product in products.iter() {
+    //             new_product *= *product;
+    //         }
+    
+    //         Some(new_product)
+    //     });
+
+    //     let mut highest_product = u32::MAX;
+    //     let mut perm_cnt = 0;
+    //     for (i, (perm, product)) in perm_iter.enumerate() {
+    //         println!("--{}: {:?} {}", i, perm, product);
+    //         if product > highest_product {
+    //             println!("ERROR! i={}, {} > {}", i, product, highest_product);
+    //             assert!(false);
+    //         }
+    //         highest_product = product;
+    //         perm_cnt += 1;
+    //     }
+    //     assert_eq!(perm_cnt, 256);
+    // }
+
+    // #[test]
+    // /// A copy of test_8, except using the radix iterator
+    // fn radix_test_4() {
+    //     let mut rng = Pcg64::seed_from_u64(3);
+    //     let mut test_dist: Vec<Vec<u32>> = vec![];
+    //     for _ in 0..3 {
+    //         let dist_elements = rng.gen_range(1..8);
+    //         let mut inner_dist = Vec::with_capacity(dist_elements);
+    //         for _ in 0..dist_elements {
+    //             inner_dist.push(rng.gen_range(0..256));
+    //         }
+    //         test_dist.push(inner_dist);
+    //     }
+
+    //     let factor_element_counts: Vec<usize> = test_dist.iter().map(|inner| inner.len()).collect();
+    //     let mut expected_perm_count = 1;
+    //     factor_element_counts.iter().for_each(|cnt| expected_perm_count *= cnt);
+    //     println!("\nfactor_element_counts {:?}", factor_element_counts);
+    //     println!("expected_perm_count {}", expected_perm_count);
+
+    //     let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
+
+    //         let mut new_product: u32 = 1;
+    //         for product in products.iter() {
+    //             new_product *= *product;
+    //         }
+    
+    //         Some(new_product)
+    //     });
+
+    //     let mut highest_product = u32::MAX;
+    //     let mut perm_cnt = 0;
+    //     for (i, (perm, product)) in perm_iter.enumerate() {
+    //         println!("--{}: {:?} {}", i, perm, product);
+    //         if product > highest_product {
+    //             println!("ERROR! i={}, {} > {}", i, product, highest_product);
+    //             assert!(false);
+    //         }
+    //         highest_product = product;
+    //         perm_cnt += 1;
+    //     }
+    //     assert_eq!(perm_cnt, expected_perm_count);
+    // }
 
 }
