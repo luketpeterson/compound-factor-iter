@@ -1,9 +1,6 @@
 
 use std::cmp::Ordering;
 
-use arrayvec::ArrayVec;
-const MAX_FACTOR_COUNT: usize = 64; //GOAT, this probably belongs in main
-
 pub struct OrderedPermutationIter<'a, T> {
 
     /// The individual distributions we're iterating the permutations of
@@ -53,59 +50,17 @@ impl<'a, T> OrderedPermutationIter<'a, T>
     pub fn factor_count(&self) -> usize {
         self.sorted_dists.len()
     }
-    //NOTE: A future optimization is to keep the factors vector in memory rather than
-    // rebuilding it every time.
-    fn sorted_state_combined_val(&self, state: &[usize]) -> Option<T> {
+    fn factors_from_state(&self, state: &[usize]) -> Vec<T> {
 
-        //GOAT, works great, but is stupid slow
-        //-----------------------------
-        // let factors: Vec<T> = state.iter()
-        //     .enumerate()
-        //     .map(|(slot_idx, sorted_idx)| self.sorted_dists[slot_idx][*sorted_idx].1)
-        //     .collect();
-
-        // (self.combination_fn)(&factors)
-
-
-        //GOAT, inlining the test function is HUGE.  Like 5x perf
-        //Allocating the Vec every time means the test runs in 51 seconds.  Inlining
-        // the closure (code below) means it runs in 9 seconds.
-        //-----------------------------
-        // let mut new_prob: f64 = 1.0;
-        // for (slot_idx, sorted_idx) in state.iter().enumerate() {
-        //     new_prob *= self.sorted_dists[slot_idx][*sorted_idx].1 as f64;
-        // }
-
-        // //return None if prob is below ZERO_THRESHOLD
-        // const ZERO_THRESHOLD: f32 = 0.0000000001;
-        // if new_prob as f32 > ZERO_THRESHOLD {
-        //     Some(new_prob as f32)
-        // } else {
-        //     None
-        // }
-        
-        //GOAT, ArrayVec gets us most of the way there
-        //From 51 seconds to 12.1 seconds.  But unfortunately not quite the 9 seconds of the
-        // inlined function.  So we're most of the way there, but now let's try an iterator
-        // instead of a slice
-        //-----------------------------
-        let mut factors = ArrayVec::<_, MAX_FACTOR_COUNT>::new();
+        let mut factors = Vec::with_capacity(state.len());
         for (slot_idx, sorted_idx) in state.iter().enumerate() {
             factors.push(self.sorted_dists[slot_idx][*sorted_idx].1);
         }
 
+        factors
+    }
+    fn execute_combine_fn(&self, factors: &[T]) -> Option<T> {
         (self.combination_fn)(&factors)
-
-        //GOAT, Trying now with an iterator
-        //OH NO!  In theory this is the simplest, but unfortunately the iterator is passed
-        // as a &mut dyn Iterator<Item=T>, which means we're calling across the &dyn dispatch
-        // every single time next() is called, and the compiler has zero inline ability
-        //-----------------------------
-        // let mut factors_iter = state.iter()
-        //     .enumerate()
-        //     .map(|(slot_idx, sorted_idx)| self.sorted_dists[slot_idx][*sorted_idx].1);
-
-        // (self.combination_fn)(&mut factors_iter)
     }
     fn state_to_result(&self) -> Option<(Vec<usize>, T)> {
         
@@ -114,7 +69,9 @@ impl<'a, T> OrderedPermutationIter<'a, T>
             .map(|(slot_idx, sorted_letter_idx)| self.sorted_dists[slot_idx][*sorted_letter_idx].0)
             .collect();
 
-        self.sorted_state_combined_val(&self.state)
+        let factors = self.factors_from_state(&self.state);
+
+        self.execute_combine_fn(&factors)
             .map(|combined_val| (result, combined_val))
     }
     /// Searches the frontier around a state, looking for the next state that has the highest overall
@@ -157,7 +114,8 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                         break;
                     }
                     tops[i] = new_bottom; //Temporarily hijacking tops
-                    let prob = self.sorted_state_combined_val(&tops);
+                    let factors = self.factors_from_state(&tops);
+                    let prob = self.execute_combine_fn(&factors);
                     if prob.is_some() && prob.unwrap() > self.current_val {
                         bottoms.push(new_bottom+1);
                         break;
@@ -170,8 +128,10 @@ impl<'a, T> OrderedPermutationIter<'a, T>
 
             //We need to check every combination of adjustments between tops and bottoms
             let mut temp_state = bottoms.clone();
+            let mut temp_factors = self.factors_from_state(&temp_state);
             if letter_to_advance < factor_count {
                 temp_state[letter_to_advance] = tops[letter_to_advance];
+                temp_factors[letter_to_advance] = self.sorted_dists[letter_to_advance][temp_state[letter_to_advance]].1;
             }
             let mut finished = false;
             while !finished {
@@ -183,9 +143,11 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                 let mut cur_letter;
                 if letter_to_advance != 0 {
                     temp_state[0] += 1;
+                    temp_factors[0] = self.sorted_dists[0][temp_state[0]].1;
                     cur_letter = 0;
                 } else {
                     temp_state[1] += 1;
+                    temp_factors[1] = self.sorted_dists[1][temp_state[1]].1;
                     cur_letter = 1;
                 }
 
@@ -193,6 +155,7 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                 while temp_state[cur_letter] > tops[cur_letter] {
 
                     temp_state[cur_letter] = bottoms[cur_letter];
+                    temp_factors[cur_letter] = self.sorted_dists[cur_letter][temp_state[cur_letter]].1;
                     cur_letter += 1;
 
                     //Skip over the letter_to_advance, which we're going to leave pegged to tops
@@ -202,13 +165,14 @@ impl<'a, T> OrderedPermutationIter<'a, T>
 
                     if cur_letter < factor_count {
                         temp_state[cur_letter] += 1;
+                        temp_factors[cur_letter] = self.sorted_dists[cur_letter][temp_state[cur_letter]].1;
                     } else {
                         finished = true;
                         break;
                     }
                 }
     
-                if let Some(temp_prob) = self.sorted_state_combined_val(&temp_state) {
+                if let Some(temp_prob) = self.execute_combine_fn(&temp_factors) {
                     if temp_prob < self.current_val && temp_prob >= highest_prob {
 
                         if temp_prob > highest_prob {
@@ -246,7 +210,8 @@ impl<'a, T> OrderedPermutationIter<'a, T>
 
             new_state[0] += 1;
             let mut cur_digit = 0;
-            let mut temp_prob = self.sorted_state_combined_val(&new_state);
+            let factors = self.factors_from_state(&new_state);
+            let mut temp_prob = self.execute_combine_fn(&factors);
 
             while temp_prob.is_some() && temp_prob.unwrap() < prob {
 
@@ -258,7 +223,8 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                 }
 
                 new_state[cur_digit] += 1;
-                temp_prob = self.sorted_state_combined_val(&new_state);
+                let factors = self.factors_from_state(&new_state);
+                temp_prob = self.execute_combine_fn(&factors);
             }
             
             if temp_prob.is_some() && temp_prob.unwrap() == prob {
@@ -329,3 +295,8 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 
 //a. search for the word "letter", replace with "factor"
 //b. search for the word "prob", replace with "element"
+
+//Make a ReadMe
+//Reversible.
+//Sensitiveity map for radix iter.
+

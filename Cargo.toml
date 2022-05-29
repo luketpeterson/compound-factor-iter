@@ -7,7 +7,6 @@ edition = "2021"
 
 [dependencies]
 num-traits = "0.2.15"
-arrayvec = "0.7.2"
 fuzzy_rocks = "0.2.1"
 rand = "0.8.0"
 rand_pcg = "0.3.1"
