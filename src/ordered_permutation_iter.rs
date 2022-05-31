@@ -332,10 +332,4 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 //Reversible.
 //Sensitiveity map for radix iter.
 
-//Improved Radix Iterator: I have a suspicion that a better algorithm exists that is able to
-// systematically traverse the factor-space while causing the sum-of-sorted-factor-places to
-// increase monotonically, and not miss any permutations.  This would get rid of the largest
-// source of out-of-order results for the radix iterator, which is the rollover behavior,
-// where incrementing one factor resets many factors back to a much lower position.
-//
-//
+

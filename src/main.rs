@@ -26,6 +26,9 @@ use ordered_permutation_iter::*;
 mod radix_permutation_iter;
 use radix_permutation_iter::*;
 
+mod approx_permutation_iter;
+use approx_permutation_iter::*;
+
 fn main() {
 
     //Open the FuzzyRocks Table, or initialize it if it doesn't exist
@@ -174,8 +177,11 @@ impl LetterDistribution {
             }
         })
     }
-    pub fn radix_permutations(&self) -> RadixPermutationIter<f32> {
-        RadixPermutationIter::new(self.letter_probs.iter(), &Self::compound_probs)
+    pub fn radix_permutations(&self) -> ApproxPermutationIter<f32> {
+    //GOAT.  Should I make Manhattan its own thing, or make it replace Radix??
+    //pub fn radix_permutations(&self) -> RadixPermutationIter<f32> {
+        //RadixPermutationIter::new(self.letter_probs.iter(), &Self::compound_probs)
+        ApproxPermutationIter::new(self.letter_probs.iter(), &Self::compound_probs)
     }
     fn normalize_and_sort(&mut self) {
 
@@ -766,7 +772,7 @@ mod tests {
             }
         }
 
-        assert!(no_count < 1);
+        assert_eq!(no_count, 0);
     }
 
     #[test]
@@ -791,7 +797,9 @@ mod tests {
             println!("");
         }
 
+        //GOAT
         let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
+        //let perm_iter = ApproxPermutationIter::new(test_dist.iter(), &|products|{
 
             let mut new_product: u32 = 1;
             for product in products.iter() {
@@ -846,5 +854,44 @@ mod tests {
         }
         assert_eq!(perm_cnt, expected_perm_count);
     }
+
+    #[test]
+    /// Another basic test for the ApproxPermutationIter
+    fn approx_test_1() {
+
+        let letter_probs = vec![
+            vec![('a', 0.7), ('b', 0.2), ('c', 0.1)],
+            vec![('a', 0.6), ('b', 0.3), ('c', 0.1)],
+            vec![('a', 0.5), ('b', 0.4), ('c', 0.1)],
+        ];
+        let test_dist = LetterDistribution::from_probs(&letter_probs);
+        println!("Testing:");
+        println!("{}", test_dist);
+
+        //GOAT debug
+        for (i, (possible_word, word_prob)) in test_dist.radix_permutations().enumerate() {
+            println!("--{}: {:?} {}", i, possible_word, word_prob);
+        } 
+
+        //GOAT, re-enable test eventually
+        // let results: Vec<(usize, (Vec<usize>, f32))> = test_dist.radix_permutations().enumerate().collect();
+        // for (i, (possible_word, word_prob)) in results.iter() {
+        //     println!("--{}: {:?} {}", i, possible_word, word_prob);
+        // }
+
+        // let result_strings: Vec<Vec<usize>> = results.into_iter().map(|(_idx, (string, _prob))| string).collect();
+        // assert_eq!(result_strings,
+        //     vec![
+        //         result_from_str("aaa"),
+        //         result_from_str("aab"), 
+        //         result_from_str("aba"),
+        //         result_from_str("abb"),
+        //         result_from_str("baa"),
+        //         result_from_str("bab"),
+        //         result_from_str("bba"),
+        //         result_from_str("bbb"),
+        //     ]);
+    }
+
 
 }
