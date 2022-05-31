@@ -8,11 +8,50 @@ Imagine you have a potential word, represented as a collection of letter probabi
 Sounds simple enough, just sort each individual letter's probability list and take the first one from each letter (aka factor).  How about the second-most-probable overall word?  Find the smallest difference in probability between the second most probable letter and the most probable letter, and substitute that letter.  How about the 1000th most probable?  Uhhhhhhh....?  That's what this crate is for.
 
 ## Usage
+```rust
+use compound_factor_iter::*;
 
-GOAT
+fn idx_to_char(idx: usize) -> char {
+    char::from_u32((idx+97) as u32).unwrap()
+}
+
+fn char_to_idx(c: char) -> usize {
+    (c as usize) - 97
+}
+
+/// "bat", "cat", "hat", "bam", "cam", "ham"
+let mut letter_probs = [[0.0; 26]; 3];
+letter_probs[0][char_to_idx('b')] = 0.4;
+letter_probs[0][char_to_idx('c')] = 0.35;
+letter_probs[0][char_to_idx('h')] = 0.25;
+letter_probs[1][char_to_idx('a')] = 1.0;
+letter_probs[2][char_to_idx('m')] = 0.35;
+letter_probs[2][char_to_idx('t')] = 0.65;
+
+let product_fn = |probs: &[f32]|{
+
+    let mut new_prob = 1.0;
+    for prob in probs.into_iter() {
+        new_prob *= prob;
+    }
+
+    if new_prob > 0.0 {
+        Some(new_prob)
+    } else {
+        None
+    }
+};
+
+for (permutation, prob) in OrderedPermutationIter::new(letter_probs.iter(), 1.0, &product_fn) {
+    let word: String = permutation.into_iter().map(|idx| idx_to_char(idx)).collect();
+    println!("permutation = {}, prob = {}", word, prob);
+}
+```
+
+## Monotonicity Requirement
+The iterators in this crate can be used for a variety of functions that take discrete value as inputs, however one condition must hold: **An increase in any input factor's value must produce an increase in the combined function's output value.**  In other words, factors that can have a negative influence are not allowed.
 
 ## Why are there 3 Different Iterators?
-
 All 3 iterator types have exactly the same interface and can be used interchangeably, but they have vastly different performance and quality characteristics.
 
 ### OrderedPermutationIter
@@ -20,7 +59,7 @@ The [OrderedPermutationIter] is guaranteed to return results in order, from high
 
 In general, the OrderedPermutationIter is only for situaitions where out-of-order results are unaccaptable.
 
-GOAT, move this explanation to the Iterator's description page
+GOAT, move this explanation to the Iterator's description page.  Elaborate providing a more detailed algorithmic explanation.
 
 ### ApproxPermutationIter
 

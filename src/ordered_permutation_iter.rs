@@ -326,7 +326,6 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 
 //Dust off that simplistic database for words, to make a word_db lookup test & example
 
-//Make a ReadMe
 //Future needs:
 //High performance for equal-path
 //Reversible.

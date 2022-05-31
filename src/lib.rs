@@ -8,8 +8,6 @@ use std::io::{BufReader, BufRead};
 use std::path::{Path, PathBuf};
 use std::cmp::Ordering;
 
-use fuzzy_rocks::{*};
-
 use rand::prelude::*;
 use rand_pcg::Pcg64;
 
@@ -24,54 +22,55 @@ pub use radix_permutation_iter::RadixPermutationIter;
 mod approx_permutation_iter;
 pub use approx_permutation_iter::ApproxPermutationIter;
 
-fn main() {
+//GOAT
+// fn main() {
 
-    //Open the FuzzyRocks Table, or initialize it if it doesn't exist
-    let table = if !PathBuf::from("test.rocks").exists() {
-        let mut table = Table::<DefaultTableConfig, true>::new("test.rocks", DefaultTableConfig()).unwrap();
-        table.reset().unwrap();
-        init_table_with_dict(&mut table, "/usr/share/dict/words");
-        table
-    } else {
-        Table::<DefaultTableConfig, true>::new("test.rocks", DefaultTableConfig()).unwrap()
-    };
+//     //Open the FuzzyRocks Table, or initialize it if it doesn't exist
+//     let table = if !PathBuf::from("test.rocks").exists() {
+//         let mut table = Table::<DefaultTableConfig, true>::new("test.rocks", DefaultTableConfig()).unwrap();
+//         table.reset().unwrap();
+//         init_table_with_dict(&mut table, "/usr/share/dict/words");
+//         table
+//     } else {
+//         Table::<DefaultTableConfig, true>::new("test.rocks", DefaultTableConfig()).unwrap()
+//     };
 
-    let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
-    //let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen());
+//     let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
+//     //let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen());
     
-    //"adventurous", on top of randomness
-    let mut test_dist = LetterDistribution::random(11, 3, &mut rng, |_, _, rng| rng.gen());
-    test_dist.set_letter_prob(0, 'a', 0.5);
-    test_dist.set_letter_prob(1, 'd', 0.5);
-    test_dist.set_letter_prob(2, 'v', 0.3);
-    test_dist.set_letter_prob(3, 'e', 0.5);
-    test_dist.set_letter_prob(4, 'n', 0.3);
-    test_dist.set_letter_prob(5, 't', 0.01);
-    test_dist.set_letter_prob(6, 'u', 0.5);
-    test_dist.set_letter_prob(7, 'r', 0.5);
-    test_dist.set_letter_prob(8, 'o', 0.01);
-    test_dist.set_letter_prob(9, 'u', 0.5);
-    test_dist.set_letter_prob(10, 's', 0.5);
-    println!("{}", test_dist);
+//     //"adventurous", on top of randomness
+//     let mut test_dist = LetterDistribution::random(11, 3, &mut rng, |_, _, rng| rng.gen());
+//     test_dist.set_letter_prob(0, 'a', 0.5);
+//     test_dist.set_letter_prob(1, 'd', 0.5);
+//     test_dist.set_letter_prob(2, 'v', 0.3);
+//     test_dist.set_letter_prob(3, 'e', 0.5);
+//     test_dist.set_letter_prob(4, 'n', 0.3);
+//     test_dist.set_letter_prob(5, 't', 0.01);
+//     test_dist.set_letter_prob(6, 'u', 0.5);
+//     test_dist.set_letter_prob(7, 'r', 0.5);
+//     test_dist.set_letter_prob(8, 'o', 0.01);
+//     test_dist.set_letter_prob(9, 'u', 0.5);
+//     test_dist.set_letter_prob(10, 's', 0.5);
+//     println!("{}", test_dist);
 
-    //Iterate the permutations, and try looking each one up
-    //for (i, (permutation, prob)) in test_dist.radix_permutations().enumerate() {
-    for (i, (permutation, prob)) in test_dist.ordered_permutations().enumerate() {
+//     //Iterate the permutations, and try looking each one up
+//     //for (i, (permutation, prob)) in test_dist.radix_permutations().enumerate() {
+//     for (i, (permutation, prob)) in test_dist.ordered_permutations().enumerate() {
         
-        let perm_string: String = permutation.into_iter().map(|idx| char::from((idx+97) as u8)).collect();
+//         let perm_string: String = permutation.into_iter().map(|idx| char::from((idx+97) as u8)).collect();
         
-        if i%100 == 0 {
-            println!("--{}: {:?} {}", i, perm_string, prob);
-        }
+//         if i%100 == 0 {
+//             println!("--{}: {:?} {}", i, perm_string, prob);
+//         }
         
-        for (record_id, distance) in table.lookup_fuzzy(&perm_string, Some(2)).unwrap() {
+//         for (record_id, distance) in table.lookup_fuzzy(&perm_string, Some(2)).unwrap() {
             
-            //The value also happens to be the key.  How convenient.
-            let dict_word = table.get_value(record_id).unwrap();
-            println!("idx = {}, raw_prob = {}, {} matches {}, distance={}", i, prob, perm_string, dict_word, distance, );
-        }
-    }
-}
+//             //The value also happens to be the key.  How convenient.
+//             let dict_word = table.get_value(record_id).unwrap();
+//             println!("idx = {}, raw_prob = {}, {} matches {}, distance={}", i, prob, perm_string, dict_word, distance, );
+//         }
+//     }
+// }
 
 const BRANCHING_FACTOR: usize = 26;  //26 letters in the alphabet
 
@@ -248,21 +247,22 @@ fn char_to_idx(c: char) -> Option<usize> {
     }
 }
 
-fn init_table_with_dict<P: AsRef<Path>>(table: &mut Table::<DefaultTableConfig, true>, file_path: P) {
+//GOAT
+// fn init_table_with_dict<P: AsRef<Path>>(table: &mut Table::<DefaultTableConfig, true>, file_path: P) {
 
-    let f = fs::File::open(file_path).unwrap();
+//     let f = fs::File::open(file_path).unwrap();
 
-    //Read each line in the file, one word per line
-    for (idx, line_result) in BufReader::new(f).lines().enumerate() {
+//     //Read each line in the file, one word per line
+//     for (idx, line_result) in BufReader::new(f).lines().enumerate() {
 
-        let line = line_result.unwrap();
-        table.insert(line.clone(), &line).unwrap();
+//         let line = line_result.unwrap();
+//         table.insert(line.clone(), &line).unwrap();
 
-        if idx % 1000 == 0 {
-            println!("Loaded word #{}, {}", idx, line);
-        }
-    }
-}
+//         if idx % 1000 == 0 {
+//             println!("Loaded word #{}, {}", idx, line);
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
