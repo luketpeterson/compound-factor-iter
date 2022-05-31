@@ -10,8 +10,8 @@ pub use ordered_permutation_iter::OrderedPermutationIter;
 mod radix_permutation_iter;
 pub use radix_permutation_iter::RadixPermutationIter;
 
-mod approx_permutation_iter;
-pub use approx_permutation_iter::ApproxPermutationIter;
+mod manhattan_permutation_iter;
+pub use manhattan_permutation_iter::ManhattanPermutationIter;
 
 #[cfg(test)]
 mod tests;

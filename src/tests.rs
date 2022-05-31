@@ -40,8 +40,6 @@ fn generate_ground_truth(dist: &LetterDistribution, set_letter_positions: usize)
             ground_truth.push((result, prob as f32));
         }
 
-println!("goat prob {}", prob);
-
         if state == end_state {
             break;
         }
@@ -71,7 +69,6 @@ fn group_result_by_prob(results: Vec<(Vec<usize>, f32)>) -> HashMap<String, Vec<
 }
 
 /// Convenience function for test cases
-#[cfg(test)]
 fn result_from_str(input: &str) -> Vec<usize> {
     let mut result = Vec::with_capacity(input.len());
     for c in input.chars() {
@@ -81,7 +78,6 @@ fn result_from_str(input: &str) -> Vec<usize> {
 }
 
 /// Convenience function for test cases
-#[cfg(test)]
 fn compare_grouped_results(a_group: HashMap<String, Vec<Vec<usize>>>, b_group: HashMap<String, Vec<Vec<usize>>>) -> bool {
 
     let mut sorted_a_group: Vec<(String, Vec<Vec<usize>>)> = a_group.into_iter().collect();
@@ -112,7 +108,7 @@ fn compare_grouped_results(a_group: HashMap<String, Vec<Vec<usize>>>, b_group: H
 /// Test case to make sure we hit all 8 permutations in the right order.  This is the easiest test
 /// because all permutations have unique probabilities, and there are very few of them
 /// aaa=0.336, aab=0.224, aba=0.144, abb=0.096, baa=0.084, bab=0.056, bba=0.036, bbb=0.024
-fn test_0() {
+fn ordered_test_0() {
 
     let letter_probs = vec![
         vec![('a', 0.8), ('b', 0.2)],
@@ -145,7 +141,7 @@ fn test_0() {
 #[test]
 /// Similar to test_0, but with some equal weights, to make sure tie-breaking logic works
 /// aaa=0.343, baa=0.147, aba=0.147, aab=0.147, abb=0.063, bab=0.063, bba=0.063, bbb=0.027
-fn test_1() {
+fn ordered_test_1() {
 
     let letter_probs = vec![
         vec![('a', 0.7), ('b', 0.3)],
@@ -167,7 +163,7 @@ fn test_1() {
 
 #[test]
 /// "bat"=.233, "cat"=.233, "hat"=.233, "bam"=.100, "cam"=.100, "ham"=.100
-fn test_2() {
+fn ordered_test_2() {
 
     let letter_probs = vec![
         vec![('b', 0.33), ('c', 0.33), ('h', 0.33)],
@@ -201,7 +197,7 @@ fn test_2() {
 /// Test case with multipe equal-weight possibilities, to test backtracking multiple positions
 ///  in a single step
 /// output should be: ac=0.16, xx=0.06 times 8, xx=0.0225 times 16
-fn test_3() {
+fn ordered_test_3() {
 
     let letter_probs = vec![
         vec![('a', 0.4), ('b', 0.15), ('c', 0.15), ('d', 0.15), ('e', 0.15)],
@@ -287,7 +283,7 @@ fn ordered_test_4() {
 /// The same idea as test_4, except with a ditribution of random rather than regular
 /// values.  This will hit cases where a single step on one letter might set another
 /// letter back many steps.  This violates the "conservation of net position" intuition.
-fn test_5() {
+fn ordered_test_5() {
 
     let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
     let test_dist = LetterDistribution::random(4, 4, &mut rng, |_, _, rng| rng.gen());
@@ -308,7 +304,7 @@ fn test_5() {
 
 #[test]
 /// A random test distribution.  Random is a pathological case.
-fn test_6() {
+fn ordered_test_6() {
 
     let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
     let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen()); //GOAT, this is the real test
@@ -333,7 +329,7 @@ fn test_6() {
 #[test]
 /// A distribution with random values, but an exhaustible number of possible permutations,
 /// in order to test boundary conditions
-fn test_7() {
+fn ordered_test_7() {
     let mut rng = Pcg64::seed_from_u64(1);
     let mut test_dist: Vec<Vec<u32>> = vec![];
     for _ in 0..4 {
@@ -379,7 +375,7 @@ fn test_7() {
 
 #[test]
 /// A distribution with an uneven number of elements in each factor
-fn test_8() {
+fn ordered_test_8() {
     let mut rng = Pcg64::seed_from_u64(3);
     let mut test_dist: Vec<Vec<u32>> = vec![];
     for _ in 0..3 {
@@ -460,7 +456,7 @@ fn radix_test_0() {
 }
 
 #[test]
-/// A test RadixPermutationIter with more than two possible options for each digit
+/// Test the RadixPermutationIter with more than two possible options for each digit
 fn radix_test_1() {
 
     let letter_probs = vec![
@@ -520,7 +516,7 @@ fn radix_test_2() {
 }
 
 #[test]
-/// A copy of test_7, except using the radix iterator
+/// A copy of ordered_test_7, except using the radix iterator
 fn radix_test_3() {
     let mut rng = Pcg64::seed_from_u64(1);
     let mut test_dist: Vec<Vec<u32>> = vec![];
@@ -541,9 +537,7 @@ fn radix_test_3() {
         println!("");
     }
 
-    //GOAT
-    //let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
-    let perm_iter = ApproxPermutationIter::new(test_dist.iter(), &|products|{
+    let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
 
         let mut new_product: u32 = 1;
         for product in products.iter() {
@@ -562,7 +556,7 @@ fn radix_test_3() {
 }
 
 #[test]
-/// A copy of test_8, except using the radix iterator
+/// A copy of ordered_test_8, except using the radix iterator
 fn radix_test_4() {
     let mut rng = Pcg64::seed_from_u64(3);
     let mut test_dist: Vec<Vec<u32>> = vec![];
@@ -581,9 +575,7 @@ fn radix_test_4() {
     println!("\nfactor_element_counts {:?}", factor_element_counts);
     println!("expected_perm_count {}", expected_perm_count);
 
-    //GOAT
-    //let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
-    let perm_iter = ApproxPermutationIter::new(test_dist.iter(), &|products|{
+    let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
 
         let mut new_product: u32 = 1;
         for product in products.iter() {
@@ -602,8 +594,40 @@ fn radix_test_4() {
 }
 
 #[test]
-/// Another basic test for the ApproxPermutationIter
-fn approx_test_1() {
+/// A basic test for the ManhattanPermutationIter
+fn manhattan_test_0() {
+
+    let letter_probs = vec![
+        vec![('a', 0.8), ('b', 0.2)],
+        vec![('a', 0.7), ('b', 0.3)],
+        vec![('a', 0.6), ('b', 0.4)],
+    ];
+    let test_dist = LetterDistribution::from_probs(&letter_probs);
+    println!("Testing:");
+    println!("{}", test_dist);
+
+    let results: Vec<(usize, (Vec<usize>, f32))> = test_dist.manhattan_permutations().enumerate().collect();
+    for (i, (possible_word, word_prob)) in results.iter() {
+        println!("--{}: {:?} {}", i, possible_word, word_prob);
+    }
+
+    let result_strings: Vec<Vec<usize>> = results.into_iter().map(|(_idx, (string, _prob))| string).collect();
+    assert_eq!(result_strings,
+        vec![
+            result_from_str("aaa"),
+            result_from_str("aab"), 
+            result_from_str("aba"),
+            result_from_str("baa"), //NOTE: These are out of order, but we're testing Manhattan behavior
+            result_from_str("abb"),
+            result_from_str("bab"),
+            result_from_str("bba"),
+            result_from_str("bbb"),
+        ]);
+}
+
+#[test]
+/// Another basic test for the ApproxPermutationIter, but with more than 2 permutations per letter
+fn manhattan_test_1() {
 
     let letter_probs = vec![
         vec![('a', 0.7), ('b', 0.2), ('c', 0.1)],
@@ -614,28 +638,126 @@ fn approx_test_1() {
     println!("Testing:");
     println!("{}", test_dist);
 
-    //GOAT debug
-    for (i, (possible_word, word_prob)) in test_dist.radix_permutations().enumerate() {
+    let results: Vec<(Vec<usize>, f32)> = test_dist.manhattan_permutations().collect();
+    for (i, (possible_word, word_prob)) in results.iter().enumerate() {
         println!("--{}: {:?} {}", i, possible_word, word_prob);
-    } 
+    }
+    let grouped_results = group_result_by_prob(results);
 
-    //GOAT, re-enable test eventually
-    // let results: Vec<(usize, (Vec<usize>, f32))> = test_dist.radix_permutations().enumerate().collect();
-    // for (i, (possible_word, word_prob)) in results.iter() {
-    //     println!("--{}: {:?} {}", i, possible_word, word_prob);
+    let ground_truth = generate_ground_truth(&test_dist, 4);
+    // for (i, (possible_word, word_prob)) in ground_truth.iter().enumerate() {
+    //     println!("G--{}: {:?} {}", i, possible_word, word_prob);
     // }
+    let grouped_truth = group_result_by_prob(ground_truth);
 
-    // let result_strings: Vec<Vec<usize>> = results.into_iter().map(|(_idx, (string, _prob))| string).collect();
-    // assert_eq!(result_strings,
-    //     vec![
-    //         result_from_str("aaa"),
-    //         result_from_str("aab"), 
-    //         result_from_str("aba"),
-    //         result_from_str("abb"),
-    //         result_from_str("baa"),
-    //         result_from_str("bab"),
-    //         result_from_str("bba"),
-    //         result_from_str("bbb"),
-    //     ]);
+    assert!(compare_grouped_results(grouped_results, grouped_truth));
 }
 
+#[test]
+/// Compare a manhattan iterator against an ordered iterator. For this particular config should,
+/// the top 500 manhattan results should contain all of the top 50 ordered results.  However,
+/// this ratio is not constant / linear.  Roughly it seems it's like the relationship is k*n log(n),
+/// where n is the number of manhattan results needed to be very likely you have all ordered results.
+fn manhattan_test_2() {
+
+    println!();
+    let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
+    let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen());
+    println!("{}", test_dist);
+
+    let ordered: Vec<(Vec<usize>, f32)> = test_dist.ordered_permutations().take(350).collect();
+    let radix: Vec<(Vec<usize>, f32)> = test_dist.manhattan_permutations().take(14000).collect();
+
+    // let ordered: Vec<(Vec<usize>, f32)> = test_dist.ordered_permutations().take(1750).collect();
+    // let radix: Vec<(Vec<usize>, f32)> = test_dist.manhattan_permutations().take(200000).collect();
+
+    let mut no_count = 0;
+    for (i, (possible_word, word_prob)) in ordered.into_iter().enumerate() {
+        if radix.contains(&(possible_word.clone(), word_prob)) {
+            println!("YES --{}: {:?} {}", i, possible_word, word_prob);
+        } else {
+            println!("No --{}: {:?} {}", i, possible_word, word_prob);
+            no_count += 1;
+        }
+    }
+
+    assert_eq!(no_count, 0);
+}
+
+#[test]
+/// A copy of ordered_test_7, except using the manhattan iterator
+fn manhattan_test_3() {
+    let mut rng = Pcg64::seed_from_u64(1);
+    let mut test_dist: Vec<Vec<u32>> = vec![];
+    for _ in 0..4 {
+        let mut inner_dist = vec![];
+        for _ in 0..4 {
+            inner_dist.push(rng.gen_range(0..256));
+        }
+        test_dist.push(inner_dist);
+    }
+
+    println!("    -1-  -2-  -3-  -4-");
+    for i in 0..4 {
+        print!("{} -", i);
+        for inner_dist in test_dist.iter() {
+            print!("{:>4} ", inner_dist[i]);
+        }
+        println!("");
+    }
+
+    let perm_iter = ManhattanPermutationIter::new(test_dist.iter(), &|products|{
+
+        let mut new_product: u32 = 1;
+        for product in products.iter() {
+            new_product *= *product;
+        }
+
+        Some(new_product)
+    });
+
+    let mut perm_cnt = 0;
+    for (i, (perm, product)) in perm_iter.enumerate() {
+        println!("--{}: {:?} {}", i, perm, product);
+        perm_cnt += 1;
+    }
+    assert_eq!(perm_cnt, 256);
+}
+
+#[test]
+/// A copy of ordered_test_8, except using the manhattan iterator
+fn manhattan_test_4() {
+    let mut rng = Pcg64::seed_from_u64(3);
+    let mut test_dist: Vec<Vec<u32>> = vec![];
+    for _ in 0..3 {
+        let dist_elements = rng.gen_range(1..8);
+        let mut inner_dist = Vec::with_capacity(dist_elements);
+        for _ in 0..dist_elements {
+            inner_dist.push(rng.gen_range(0..256));
+        }
+        test_dist.push(inner_dist);
+    }
+
+    let factor_element_counts: Vec<usize> = test_dist.iter().map(|inner| inner.len()).collect();
+    let mut expected_perm_count = 1;
+    factor_element_counts.iter().for_each(|cnt| expected_perm_count *= cnt);
+    println!("\nfactor_element_counts {:?}", factor_element_counts);
+    println!("expected_perm_count {}", expected_perm_count);
+
+    let perm_iter = ManhattanPermutationIter::new(test_dist.iter(), &|products|{
+
+        let mut new_product: u32 = 1;
+        for product in products.iter() {
+            new_product *= *product;
+        }
+
+        Some(new_product)
+    });
+
+    let mut perm_cnt = 0;
+    for (i, (perm, product)) in perm_iter.enumerate() {
+        println!("--{}: {:?} {}", i, perm, product);
+        perm_cnt += 1;
+    }
+    assert_eq!(perm_cnt, expected_perm_count);
+}

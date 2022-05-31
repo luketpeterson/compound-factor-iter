@@ -156,11 +156,11 @@ impl LetterDistribution {
             }
         })
     }
-    pub fn radix_permutations(&self) -> ApproxPermutationIter<f32> {
-    //GOAT.  Should I make Manhattan its own thing, or make it replace Radix??
-    //pub fn radix_permutations(&self) -> RadixPermutationIter<f32> {
-        //RadixPermutationIter::new(self.letter_probs.iter(), &Self::compound_probs)
-        ApproxPermutationIter::new(self.letter_probs.iter(), &Self::compound_probs)
+    pub fn manhattan_permutations(&self) -> ManhattanPermutationIter<f32> {
+        ManhattanPermutationIter::new(self.letter_probs.iter(), &Self::compound_probs)
+    }
+    pub fn radix_permutations(&self) -> RadixPermutationIter<f32> {
+        RadixPermutationIter::new(self.letter_probs.iter(), &Self::compound_probs)
     }
     fn normalize(&mut self) {
 

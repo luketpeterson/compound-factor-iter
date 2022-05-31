@@ -8,7 +8,7 @@ use crate::common::*;
 /// some results out of order.
 /// 
 
-pub struct ApproxPermutationIter<'a, T> {
+pub struct ManhattanPermutationIter<'a, T> {
 
     /// The individual distributions we're iterating the permutations of
     sorted_dists: Vec<Vec<(usize, T)>>,
@@ -32,7 +32,7 @@ pub struct ApproxPermutationIter<'a, T> {
     new_iter: bool,
 }
 
-impl<'a, T> ApproxPermutationIter<'a, T> 
+impl<'a, T> ManhattanPermutationIter<'a, T> 
     where
     T: Copy + PartialOrd + num_traits::Bounded + num_traits::Zero + core::ops::Sub<Output=T>,
 {
@@ -173,7 +173,7 @@ impl<'a, T> ApproxPermutationIter<'a, T>
     }
 }
 
-impl<T> Iterator for ApproxPermutationIter<'_, T>
+impl<T> Iterator for ManhattanPermutationIter<'_, T>
     where
     T: Copy + PartialOrd + num_traits::Bounded + num_traits::Zero + core::ops::Sub<Output=T>,
 {
