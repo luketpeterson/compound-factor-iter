@@ -28,33 +28,31 @@ pub fn build_orderings<T>(sorted_dists: &Vec<Vec<(usize, T)>>, _combination_fn: 
     where
     T: Copy + PartialOrd + num_traits::Bounded + num_traits::Zero + core::ops::Sub<Output=T>,
 {
-    //GOAT, stub orderings in order to make sure I have bounds testing working properly before permutation
-    let mut orderings = vec![];
-    orderings.push((0..sorted_dists.len()).collect());
-    orderings.push((0..sorted_dists.len()).collect());
-    orderings.push((0..sorted_dists.len()).collect());
+    let factor_count = sorted_dists.len();
 
-    //GOAT, real implementation below
-    // let factor_count = sorted_dists.len();
+    let mut orderings: Vec<Vec<usize>> = Vec::with_capacity(3);
+    //Before we make it to [1, 1, 1, 1, 1, ...]
+    orderings.push({
+        //NOTE: It seems the best results on the nastiest distributions, i.e. with
+        //  the most factors, come from establishing ordering based on the
+        //  difference between the top and second places.
+        let mut ordering = Vec::with_capacity(factor_count);
+        for i in 0..factor_count {                    
+            let prob_0 = sorted_dists[i][0].1;    
+            let prob_1 = sorted_dists[i][1].1;
 
-    // let mut orderings = Vec::with_capacity(3);
-    // //Before we make it to [1, 1, 1, 1, 1, ...]
-    // orderings.push({
-    //     //NOTE: It seems the best results on the nastiest distributions, i.e. with
-    //     //  the most factors, come from establishing ordering based on the
-    //     //  difference between the top and second places.
-    //     let mut ordering = Vec::with_capacity(factor_count);
-    //     for i in 0..factor_count {                    
-    //         let prob_0 = sorted_dists[i][0].1;    
-    //         let prob_1 = sorted_dists[i][1].1;
+            ordering.push((prob_0 - prob_1, i));
+        }
+        ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_a.partial_cmp(&prob_b).unwrap_or(Ordering::Equal));
+        let ordering = ordering.into_iter().map(|(_prob, idx)| idx).collect();
+        ordering
+    });
 
-    //         ordering.push((prob_0 - prob_1, i));
-    //     }
-    //     ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_a.partial_cmp(&prob_b).unwrap_or(Ordering::Equal));
-    //     let ordering = ordering.into_iter().map(|(_prob, idx)| idx).collect();
-    //     ordering
-    // });
+    //GOAT, temporarily here so we don't change regimes
+    orderings.push(orderings[0].clone());
+    orderings.push(orderings[0].clone());
 
+    //GOAT, Real implementation of regimes 1 & 2
     // //After we pass [1, 1, 1, 1, 1, ...], but
     // //Before we make it to [2, 2, 2, 2, 2, ...]
     // orderings.push({

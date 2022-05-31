@@ -99,6 +99,13 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
 
     fn step(&mut self) -> (bool, Option<(Vec<usize>, T)>) {
 
+        //Which ordering we use depends on how far into the sequence we are
+        let ordering_idx = if self.distance_threshold > 0 {
+            (self.distance_threshold-1).min(2)
+        } else {
+            0
+        };
+
         let factor_count = self.factor_count();
 
         //TODO, if a factor reaches the zero threshold then that is the effective max_digit
@@ -109,8 +116,10 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
 
         // Scan the state from right to left looking for the first value that can be shifted right.
         let mut found_factor = factor_count-1;
-        while found_factor > 0 && (self.state[found_factor-1] == 0 || self.state[found_factor] == self.sorted_dists[found_factor].len()-1) {
+        let mut permuted_factor = self.orderings[ordering_idx][found_factor];
+        while found_factor > 0 && (self.state[found_factor-1] == 0 || self.state[found_factor] == self.sorted_dists[permuted_factor].len()-1) {
             found_factor -= 1;
+            permuted_factor = self.orderings[ordering_idx][found_factor];
         }
 
         //Make sure we have something to decrement and that we also have a place to put that value
@@ -124,7 +133,8 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
             //Reset the state for scanning permutations at the new distance_threshold
             let mut remaining_distance = self.distance_threshold;
             for (i, factor) in self.state.iter_mut().enumerate() {
-                let max_factor = self.sorted_dists[i].len()-1;
+                let permuted_i = self.orderings[ordering_idx][i];
+                let max_factor = self.sorted_dists[permuted_i].len()-1;
                 if remaining_distance > max_factor {
                     *factor = max_factor;
                     remaining_distance -= max_factor;
@@ -139,7 +149,7 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
                 return (false, None);
             }
 
-            // println!("GOAT jump_thresh to {}, {:?}", self.distance_threshold, self.state);
+            // println!("DebugPrint jump_thresh to {}, {:?}", self.distance_threshold, self.state);
         } else {
 
             // Decrement the value we found by 1
@@ -156,7 +166,8 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
             // Put the remaining "distance" into the factor(s) immediately to the right of that
             // decremented factor, and zero out the remainder of the factors to the right.
             for i in found_factor..factor_count {
-                let max_factor = self.sorted_dists[i].len()-1;
+                let permuted_i = self.orderings[ordering_idx][i];
+                let max_factor = self.sorted_dists[permuted_i].len()-1;
                 if remaining_distance > max_factor {
                     self.state[i] = max_factor;
                     remaining_distance -= max_factor;
@@ -168,12 +179,12 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
 
             //If we still have some distance remaining then we need to expand the distance_threshold
             if remaining_distance > 0 {
-                // println!("GOAT EXPAND ff= {}, remd={}, {:?}", found_factor, remaining_distance, self.state);
+                // println!("DebugPrint EXPAND ff= {}, remd={}, {:?}", found_factor, remaining_distance, self.state);
                 self.expand_distance_threshold = true;
                 return (true, None);
             }
 
-            // println!("GOAT increm ff= {}, remd={}, {:?}", found_factor, remaining_distance, self.state);
+            // println!("DebugPrint increm ff= {}, remd={}, {:?}", found_factor, remaining_distance, self.state);
         }
 
         (true, self.state_to_result())
