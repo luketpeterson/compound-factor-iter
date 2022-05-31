@@ -1,3 +1,6 @@
+#![crate_name = "compound_factor_iter"]
+
+#![doc = include_str!("../README.md")]
 
 use core::fmt;
 use std::fs;
@@ -10,26 +13,16 @@ use fuzzy_rocks::{*};
 use rand::prelude::*;
 use rand_pcg::Pcg64;
 
-/// How do you find the most probable overall outcome from a dozen individual probabilities?  Sounds
-/// simple enough, just sort each individual probability and take the first one from each component.
-/// How about the second-most-probable overall outcome?  Find the largest value among the second most
-/// probable individual probabilities and substitute it in.  How about the 1000th most probable?
-/// Uhhhhhhh....
-/// 
-/// That's what this crate is for.  [goat] iterates all compound probabilities composed from individual
-/// component probabilities in the order of compound probability.
-/// 
-
 mod common;
 
 mod ordered_permutation_iter;
-use ordered_permutation_iter::*;
+pub use ordered_permutation_iter::OrderedPermutationIter;
 
 mod radix_permutation_iter;
-use radix_permutation_iter::*;
+pub use radix_permutation_iter::RadixPermutationIter;
 
 mod approx_permutation_iter;
-use approx_permutation_iter::*;
+pub use approx_permutation_iter::ApproxPermutationIter;
 
 fn main() {
 
@@ -840,7 +833,7 @@ mod tests {
         println!("expected_perm_count {}", expected_perm_count);
 
         //GOAT
-        // let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
+        //let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
         let perm_iter = ApproxPermutationIter::new(test_dist.iter(), &|products|{
 
             let mut new_product: u32 = 1;
