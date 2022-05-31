@@ -1,6 +1,8 @@
 
 use std::cmp::Ordering;
 
+use crate::common::*;
+
 /// A fast permutation iterator based on traversal through a mixed-radix space.
 /// This is much much faster than the ordered search, although it may return
 /// some results out of order.
@@ -13,6 +15,9 @@ pub struct ApproxPermutationIter<'a, T> {
 
     /// A function capable of combining factors
     combination_fn: &'a dyn Fn(&[T]) -> Option<T>,
+
+    /// See common.rs for explanation
+    orderings: Vec<Vec<usize>>,
 
     /// The current position of the result, as indices into the sorted_letters arrays
     state: Vec<usize>,
@@ -29,7 +34,7 @@ pub struct ApproxPermutationIter<'a, T> {
 
 impl<'a, T> ApproxPermutationIter<'a, T> 
     where
-    T: Copy + PartialOrd// + num_traits::Bounded + num_traits::Zero + core::ops::Sub<Output=T>, GOAT
+    T: Copy + PartialOrd + num_traits::Bounded + num_traits::Zero + core::ops::Sub<Output=T>,
 {
     pub fn new<E: AsRef<[T]>, F: Fn(&[T]) -> Option<T>>(factor_iter: impl Iterator<Item=E>, combination_fn: &'a F) -> Self {
 
@@ -43,9 +48,12 @@ impl<'a, T> ApproxPermutationIter<'a, T>
 
         let factor_count = sorted_dists.len();
 
+        let orderings = build_orderings(&sorted_dists, &combination_fn);
+
         Self {
             sorted_dists,
             combination_fn,
+            orderings,
             state: vec![0; factor_count],
             distance_threshold: 0,
             expand_distance_threshold: false,
@@ -60,8 +68,17 @@ impl<'a, T> ApproxPermutationIter<'a, T>
     }
     fn state_to_result(&self) -> Option<(Vec<usize>, T)> {
 
-        //GOAT, we want to actually do the permute
-        let permuted_state = self.state.clone();
+        //Which ordering we use depends on how far into the sequence we are
+        let ordering_idx = if self.distance_threshold > 0 {
+            (self.distance_threshold-1).min(2)
+        } else {
+            0
+        };
+
+        let mut permuted_state = vec![0; self.factor_count()];
+        for (i, &idx) in self.orderings[ordering_idx].iter().enumerate() {
+            permuted_state[idx] = self.state[i];
+        }
 
         //Create an array of factors from the permuted state
         //TODO: We could save a Vec allocation by merging the loops above and below this one
@@ -158,7 +175,7 @@ impl<'a, T> ApproxPermutationIter<'a, T>
 
 impl<T> Iterator for ApproxPermutationIter<'_, T>
     where
-    T: Copy + PartialOrd// + num_traits::Bounded + num_traits::Zero + core::ops::Sub<Output=T>, GOAT
+    T: Copy + PartialOrd + num_traits::Bounded + num_traits::Zero + core::ops::Sub<Output=T>,
 {
     type Item = (Vec<usize>, T);
 

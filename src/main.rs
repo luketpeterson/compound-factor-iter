@@ -20,6 +20,8 @@ use rand_pcg::Pcg64;
 /// component probabilities in the order of compound probability.
 /// 
 
+mod common;
+
 mod ordered_permutation_iter;
 use ordered_permutation_iter::*;
 
