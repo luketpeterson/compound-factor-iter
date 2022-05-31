@@ -85,23 +85,12 @@ impl<'a, T> ApproxPermutationIter<'a, T>
 
         // Scan the state from right to left looking for the first value that can be shifted right.
         let mut found_factor = factor_count-1;
-        while found_factor > 0 && self.state[found_factor-1] == 0 {
+        while found_factor > 0 && (self.state[found_factor-1] == 0 || self.state[found_factor] == self.sorted_dists[found_factor].len()-1) {
             found_factor -= 1;
         }
 
-        // // Add up the factors to the right of the place we found, and make sure we can receive the
-        // // new value
-        // let mut distance_to_right = 0;
-        // for i in found_factor..factor_count {
-        //     distance_to_right += self.state[i];
-        // }
-
-        //GOAT, this "distance_to_right >= self.distance_threshold" check is obv wrong.  The rest I'm feeling good about.
-        // although I also need to think through whether overflowing some factors to their neighbors is acceptable, or whether it
-        // will lead to duplicated results...
-
         //Make sure we have something to decrement and that we also have a place to put that value
-        if (found_factor == 0 && self.state[0] == 0) || self.expand_distance_threshold {
+        if found_factor == 0 || self.expand_distance_threshold {
 
             self.expand_distance_threshold = false;
 
@@ -126,7 +115,7 @@ impl<'a, T> ApproxPermutationIter<'a, T>
                 return (false, None);
             }
 
-            println!("GOAT jump_thresh to {}, {:?}", self.distance_threshold, self.state);
+            // println!("GOAT jump_thresh to {}, {:?}", self.distance_threshold, self.state);
         } else {
 
             // Decrement the value we found by 1
@@ -139,12 +128,6 @@ impl<'a, T> ApproxPermutationIter<'a, T>
                 allocated_distance += self.state[i];
             }
             let mut remaining_distance = self.distance_threshold - allocated_distance;
-
-            //GOAT dead
-            // // Zero-out all of the remaining factors to the right of the factor we decremented
-            // // NOTE: Conceptually we zero our the remaining digits, but we just scanned them and
-            // // verified they are zero, so in practice, we can just set the last digit.
-            // *self.state.last_mut().unwrap() = 0;
 
             // Put the remaining "distance" into the factor(s) immediately to the right of that
             // decremented factor, and zero out the remainder of the factors to the right.
@@ -161,47 +144,13 @@ impl<'a, T> ApproxPermutationIter<'a, T>
 
             //If we still have some distance remaining then we need to expand the distance_threshold
             if remaining_distance > 0 {
-                //println!("GOAT EXPAND ff= {}, remd={}, {:?}", found_factor, remaining_distance, self.state);
+                // println!("GOAT EXPAND ff= {}, remd={}, {:?}", found_factor, remaining_distance, self.state);
                 self.expand_distance_threshold = true;
                 return (true, None);
             }
 
-
-            println!("GOAT increm ff= {}, remd={}, {:?}", found_factor, remaining_distance, self.state);
+            // println!("GOAT increm ff= {}, remd={}, {:?}", found_factor, remaining_distance, self.state);
         }
-
-
-
-
-        // self.state[0] += 1;
-        // let mut cur_digit = 0;
-        // while self.state[cur_digit] > self.max_digit {
-
-        //     self.state[cur_digit] = 0;
-        //     cur_digit += 1;
-
-        //     if cur_digit < factor_count {
-        //         self.state[cur_digit] += 1;
-        //     } else {
-        //         if self.max_digit < self.global_max_digit {
-        //             self.max_digit += 1;
-        //             cur_digit = 0;
-        //         } else {
-        //             //We've finished the iteration...
-        //             return (false, None);
-        //         }
-        //     }
-        // }
-
-        // let mut local_max_digit = 0;
-        // for &digit in self.state.iter() {
-        //     if digit > local_max_digit {
-        //         local_max_digit = digit;
-        //     }
-        // }
-        // if local_max_digit < self.max_digit {
-        //     self.state[0] = self.max_digit;
-        // }
 
         (true, self.state_to_result())
     }

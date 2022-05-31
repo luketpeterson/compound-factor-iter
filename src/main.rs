@@ -798,8 +798,8 @@ mod tests {
         }
 
         //GOAT
-        let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
-        //let perm_iter = ApproxPermutationIter::new(test_dist.iter(), &|products|{
+        //let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
+        let perm_iter = ApproxPermutationIter::new(test_dist.iter(), &|products|{
 
             let mut new_product: u32 = 1;
             for product in products.iter() {
@@ -837,7 +837,9 @@ mod tests {
         println!("\nfactor_element_counts {:?}", factor_element_counts);
         println!("expected_perm_count {}", expected_perm_count);
 
-        let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
+        //GOAT
+        // let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
+        let perm_iter = ApproxPermutationIter::new(test_dist.iter(), &|products|{
 
             let mut new_product: u32 = 1;
             for product in products.iter() {
