@@ -3,6 +3,8 @@ use std::cmp::Ordering;
 
 use crate::common::*;
 
+///GOAT, better description, explain algorithm
+/// 
 /// A fast permutation iterator based on traversal through a mixed-radix space.
 /// This is much much faster than the ordered search, although it may return
 /// some results out of order.
@@ -19,7 +21,7 @@ pub struct RadixPermutationIter<'a, T> {
     /// See common.rs for explanation
     orderings: Vec<Vec<usize>>,
 
-    /// The current position of the result, as indices into the sorted_letters arrays
+    /// The current position of the result, as indices into the sorted_dists arrays
     state: Vec<usize>,
 
     /// The maximum digit position across the entire state vec.  This allows us to evenly
@@ -78,10 +80,14 @@ impl<'a, T> RadixPermutationIter<'a, T>
         //Which ordering we use depends on how far into the sequence we are
         let ordering_idx = (self.max_digit-1).min(2);
 
-        let mut permuted_state = vec![0; self.factor_count()];
-        for (i, &idx) in self.orderings[ordering_idx].iter().enumerate() {
-            permuted_state[idx] = self.state[i];
-        }
+        //Goat debug only
+        let permuted_state = self.state.clone();
+
+        //GOAT, disabled for debugging
+        // let mut permuted_state = vec![0; self.factor_count()];
+        // for (i, &idx) in self.orderings[ordering_idx].iter().enumerate() {
+        //     permuted_state[idx] = self.state[i];
+        // }
 
 
 //FUUUUUCKCKCK GOAT.  We need to fix this several ways...
@@ -110,13 +116,16 @@ impl<'a, T> RadixPermutationIter<'a, T>
 
         let factor_count = self.factor_count();
 
-        //TODO, if a component reaches the zero threshold then that is the effective max_digit
-        // for that component
+        //TODO, if a factor reaches the zero threshold then that is the effective max_digit
+        // for that factor
         //TODO, if every component is at the zero threshold then we're done iterating
-        
+        //Update: I'm not sure we can rely on that property given arbitrary types and arbitrary
+        // combination functions
+
         self.state[0] += 1;
         let mut cur_digit = 0;
-        while self.state[cur_digit] > self.max_digit {
+        while self.state[cur_digit] > self.max_digit ||
+            self.state[cur_digit] >= self.sorted_dists[cur_digit].len() { //GOAT, we'll need to use the orderings mapping
 
             self.state[cur_digit] = 0;
             cur_digit += 1;
@@ -134,6 +143,9 @@ impl<'a, T> RadixPermutationIter<'a, T>
             }
         }
 
+        //If all digits are below self.max_digit, then we've already hit this permutations when
+        // self.max_digit had a lower value, so step forward to a state we definitely haven't
+        // visited yet.
         let mut local_max_digit = 0;
         for &digit in self.state.iter() {
             if digit > local_max_digit {
@@ -141,7 +153,12 @@ impl<'a, T> RadixPermutationIter<'a, T>
             }
         }
         if local_max_digit < self.max_digit {
-            self.state[0] = self.max_digit;
+            let mut i = 0;
+            while self.max_digit >= self.sorted_dists[i].len() { //GOAT, we'll need to use the orderings mapping
+                self.state[i] = 0;
+                i += 1;
+            }
+            self.state[i] = self.max_digit;
         }
 
         (true, self.state_to_result())

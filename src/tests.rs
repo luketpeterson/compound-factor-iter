@@ -57,7 +57,9 @@ fn generate_ground_truth(dist: &LetterDistribution, set_letter_positions: usize)
 }
 
 /// Convenience function for test cases
-fn group_result_by_prob(results: Vec<(Vec<usize>, f32)>) -> HashMap<String, Vec<Vec<usize>>> {
+fn group_result_by_prob<T>(results: Vec<(Vec<usize>, T)>) -> HashMap<String, Vec<Vec<usize>>>
+    where T: core::fmt::Display
+{
 
     let mut return_map = HashMap::new();
 
@@ -575,7 +577,7 @@ fn radix_test_4() {
     println!("\nfactor_element_counts {:?}", factor_element_counts);
     println!("expected_perm_count {}", expected_perm_count);
 
-    let perm_iter = RadixPermutationIter::new(test_dist.iter(), &|products|{
+    let product_fn = |products: &[u32]|{
 
         let mut new_product: u32 = 1;
         for product in products.iter() {
@@ -583,7 +585,9 @@ fn radix_test_4() {
         }
 
         Some(new_product)
-    });
+    };
+
+    let perm_iter = RadixPermutationIter::new(test_dist.iter(), &product_fn);
 
     let mut perm_cnt = 0;
     for (i, (perm, product)) in perm_iter.enumerate() {
@@ -591,6 +595,18 @@ fn radix_test_4() {
         perm_cnt += 1;
     }
     assert_eq!(perm_cnt, expected_perm_count);
+
+    //Now compare the results against the ordered_permutations, which we'll use as the ground-truth
+    let results: Vec<(Vec<usize>, u32)> = RadixPermutationIter::new(test_dist.iter(), &product_fn).collect();
+    let grouped_results = group_result_by_prob(results);
+
+    let ordered: Vec<(Vec<usize>, u32)> = OrderedPermutationIter::new(test_dist.iter(), u32::MAX, &product_fn).collect();
+    // for (i, (possible_word, word_prob)) in ordered.iter().enumerate() {
+    //     println!("G--{}: {:?} {}", i, possible_word, word_prob);
+    // }
+    let grouped_truth = group_result_by_prob(ordered);
+
+    assert!(compare_grouped_results(grouped_results, grouped_truth));
 }
 
 #[test]
@@ -744,7 +760,7 @@ fn manhattan_test_4() {
     println!("\nfactor_element_counts {:?}", factor_element_counts);
     println!("expected_perm_count {}", expected_perm_count);
 
-    let perm_iter = ManhattanPermutationIter::new(test_dist.iter(), &|products|{
+    let product_fn = |products: &[u32]|{
 
         let mut new_product: u32 = 1;
         for product in products.iter() {
@@ -752,7 +768,9 @@ fn manhattan_test_4() {
         }
 
         Some(new_product)
-    });
+    };
+
+    let perm_iter = ManhattanPermutationIter::new(test_dist.iter(), &product_fn);
 
     let mut perm_cnt = 0;
     for (i, (perm, product)) in perm_iter.enumerate() {
@@ -760,4 +778,16 @@ fn manhattan_test_4() {
         perm_cnt += 1;
     }
     assert_eq!(perm_cnt, expected_perm_count);
+
+    //Now compare the results against the ordered_permutations, which we'll use as the ground-truth
+    let results: Vec<(Vec<usize>, u32)> = ManhattanPermutationIter::new(test_dist.iter(), &product_fn).collect();
+    let grouped_results = group_result_by_prob(results);
+
+    let ordered: Vec<(Vec<usize>, u32)> = OrderedPermutationIter::new(test_dist.iter(), u32::MAX, &product_fn).collect();
+    // for (i, (possible_word, word_prob)) in ordered.iter().enumerate() {
+    //     println!("G--{}: {:?} {}", i, possible_word, word_prob);
+    // }
+    let grouped_truth = group_result_by_prob(ordered);
+
+    assert!(compare_grouped_results(grouped_results, grouped_truth));
 }

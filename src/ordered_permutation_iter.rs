@@ -1,6 +1,8 @@
 
 use std::cmp::Ordering;
 
+///GOAT, better description, explain algorithm
+/// 
 pub struct OrderedPermutationIter<'a, T> {
 
     /// The individual distributions we're iterating the permutations of

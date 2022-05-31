@@ -3,11 +3,12 @@ use std::cmp::Ordering;
 
 use crate::common::*;
 
+///GOAT, better description, explain algorithm
+/// 
 /// A fast permutation iterator based on traversal through a mixed-radix space.
 /// This is much much faster than the ordered search, although it may return
 /// some results out of order.
 /// 
-
 pub struct ManhattanPermutationIter<'a, T> {
 
     /// The individual distributions we're iterating the permutations of
@@ -99,6 +100,12 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
     fn step(&mut self) -> (bool, Option<(Vec<usize>, T)>) {
 
         let factor_count = self.factor_count();
+
+        //TODO, if a factor reaches the zero threshold then that is the effective max_digit
+        // for that factor
+        //TODO, if every component is at the zero threshold then we're done iterating
+        //Update: I'm not sure we can rely on that property given arbitrary types and arbitrary
+        // combination functions
 
         // Scan the state from right to left looking for the first value that can be shifted right.
         let mut found_factor = factor_count-1;
