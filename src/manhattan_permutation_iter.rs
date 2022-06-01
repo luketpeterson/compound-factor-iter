@@ -3,20 +3,46 @@ use std::cmp::Ordering;
 
 use crate::common::*;
 
-///GOAT, better description, explain algorithm
+/// A fast permutation iterator based on conserving path distance in an n-dimensional hypercube
 /// 
-/// A fast permutation iterator based on traversal through a mixed-radix space.
-/// This is much much faster than the ordered search, although it may return
-/// some results out of order.
-/// 
+/// ManhattanPermutationIter is **much much** faster than [OrderedPermutationIter](crate::OrderedPermutationIter), although it
+/// may return some results out of order.
 /// 
 /// The word "Manhattan" comes from the fact that permutations are tried in an
-/// order determined by their [Manhattan Distance](https://en.wikipedia.org/wiki/Taxicab_geometry).
+/// order determined by their [Manhattan Distance](https://en.wikipedia.org/wiki/Taxicab_geometry)
+/// from the single best permutation.
 /// 
 /// If you conceptualize the space of all possible permutations as an n-dimensional hypercube with
-/// one dimension for each factor, and each step along a dimension involves swapping a factor's
-/// value for the next-smaller value, then the ManhattanPermutationIter will systematically explore
-/// all permutations at each distance before incrementing the distance by one.
+/// one dimension for each factor, and each step along a dimension results in the swapping of a
+/// factor's value for the next-smaller value.  The ManhattanPermutationIter will systematically
+/// explore all permutations at each distance before incrementing the distance by one.
+/// 
+/// ## Sequence Characterisitcs
+/// 
+/// On average, all results in the set of `n` iterations of the [OrderedPermutationIter](crate::OrderedPermutationIter) will occur
+/// in the set of `k*n*log(n)` iterations of the ManhattanPermutationIter, where `k` is a constant
+/// that is affected by the distribution of input factors and the `combination_fn`.  Empirically I
+/// have found `k` is usually between `10` and `50` for the data sets I've tested.
+/// 
+/// ## Algorithm Details
+/// 
+/// The algorithm begins with a search distance of 0, and therefore returns the the best permutation.
+/// Each subsequent iteration either shifts the factors to find another permutation with the same
+/// manhattan search distance or it increases the search distance by 1.
+/// 
+/// When the search distance is incremented, the the algorithm starts at the most significant factor,
+/// and apportions all of the "distance budget" to that factor.  On each subsequent iteration,
+/// some of the distance budget is shifted to less signifigant factors.
+///
+/// For example, if we are searching at a total distance of 2, the iterations would look like:
+/// ```txt
+/// 2, 0, 0
+/// 1, 1, 0
+/// 1, 0, 1
+/// 0, 2, 0
+/// 0, 1, 1
+/// 0, 0, 2
+/// ```
 /// 
 pub struct ManhattanPermutationIter<'a, T> {
 
@@ -227,33 +253,8 @@ impl<T> Iterator for ManhattanPermutationIter<'_, T>
     }
 }
 
-//Improvement upon the Radix Iterator: I have a suspicion that a better algorithm exists that is able to
-// systematically traverse the factor-space while causing the sum-of-sorted-factor-places to
-// increase monotonically, and not miss any permutations.  This would get rid of the largest
-// source of out-of-order results for the radix iterator, which is the rollover behavior,
-// where incrementing one factor resets many factors back to a much lower position.
+//More implementation examples
 //
-//The "Manhattan" Iterator would conserve manhattan distance.  That is, each solution would be the same
-// or more "steps" away from the best solution.  The implementation would monotonically increment a
-// distance, and distribute that distance based on a state.  Only permutations that allowed for all of the
-// distance to be distributed exactly would be accepted.
-//
-//So, for example, if we need to distribute a total distance of 2, the iterations might look like:
-//- 2, 0, 0
-//- 1, 1, 0
-//- 1, 0, 1
-//- 0, 2, 0
-//- 0, 1, 1
-//- 0, 0, 2
-//
-//
-//
-//The algorithm starts at the most significant place, and apportions an ammount based on a state that
-// iterates from "remaining_distance_budget" to 0.  then, the remaining budget is given to the next
-// place, and on it goes with the state for that place iterating from remaining budget to 0.
-//
-
-
 //state = 2, 0, 0   starting state,
 //state = 1, 1, 0   decrement 0th, put ALL remaining into 1st, and zero-out digits to the right,
 //state = 1, 0, 1   decrement 1st, put ALL remaining into 2nd, and zero-out digits to the right,

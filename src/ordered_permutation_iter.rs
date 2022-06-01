@@ -330,10 +330,6 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 // GOAT,
 //3. Do a test with a function that does more than just multiplying all the factors together
 
-//√a. search for the word "letter", replace with "factor"
-//√b. search for the word "prob", replace with "element"
-//√c. rename "permuted" to swizzled to avoid confusion
-
 //Dust off that simplistic dictionary for words, to make a word_db lookup test & example
 
 //Future needs:

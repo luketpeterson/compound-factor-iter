@@ -106,7 +106,7 @@ mainly trend lower as the iteration progresses.
 
 The word "Manhattan" comes from the fact that permutations are tried in an order determined by their [Manhattan Distance](https://en.wikipedia.org/wiki/Taxicab_geometry) from the single best permutation.
 
-ManhattanPermutationIter is the best choice in most situations.
+**ManhattanPermutationIter is the best choice in most situations.**
 
 ### RadixPermutationIter
 The [RadixPermutationIter] is another fixed-cost iterator implemented as a counter in a [Mixed Radix](https://en.wikipedia.org/wiki/Mixed_radix) number space.
