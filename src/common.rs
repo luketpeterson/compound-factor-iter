@@ -47,13 +47,13 @@ pub fn build_orderings<T>(sorted_dists: &Vec<Vec<(usize, T)>>, _combination_fn: 
         //  difference between the top and second places.
         let mut ordering = Vec::with_capacity(factor_count);
         for i in 0..factor_count {                    
-            let prob_0 = sorted_dists[i][0].1;    
-            let prob_1 = sorted_dists[i][1].1;
+            let val_0 = sorted_dists[i][0].1;    
+            let val_1 = sorted_dists[i][1].1;
 
-            ordering.push((prob_0 - prob_1, i));
+            ordering.push((val_0 - val_1, i));
         }
-        ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_a.partial_cmp(&prob_b).unwrap_or(Ordering::Equal));
-        let ordering = ordering.into_iter().map(|(_prob, idx)| idx).collect();
+        ordering.sort_by(|(val_a, _idx_a), (val_b, _idx_b)| val_a.partial_cmp(&val_b).unwrap_or(Ordering::Equal));
+        let ordering = ordering.into_iter().map(|(_val, idx)| idx).collect();
         ordering
     });
 
@@ -64,12 +64,12 @@ pub fn build_orderings<T>(sorted_dists: &Vec<Vec<(usize, T)>>, _combination_fn: 
         // the second-place value
         let mut ordering = Vec::with_capacity(factor_count);
         for i in 0..factor_count {        
-            let prob = sorted_dists[i][1].1;
+            let val = sorted_dists[i][1].1;
 
-            ordering.push((prob, i));
+            ordering.push((val, i));
         }
-        ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_b.partial_cmp(&prob_a).unwrap_or(Ordering::Equal));
-        let ordering = ordering.into_iter().map(|(_prob, idx)| idx).collect();
+        ordering.sort_by(|(val_a, _idx_a), (val_b, _idx_b)| val_b.partial_cmp(&val_a).unwrap_or(Ordering::Equal));
+        let ordering = ordering.into_iter().map(|(_val, idx)| idx).collect();
         ordering
     });
 
@@ -82,16 +82,16 @@ pub fn build_orderings<T>(sorted_dists: &Vec<Vec<(usize, T)>>, _combination_fn: 
         for i in 0..factor_count {        
 
             let mut l = 1;
-            let mut prob = T::zero();
+            let mut val = T::zero();
             while l < factor_count && l < 3 && l < sorted_dists[i].len() {
-                prob = prob + sorted_dists[i][l].1;
+                val = val + sorted_dists[i][l].1;
                 l += 1;
             }
 
-            ordering.push((prob, i));
+            ordering.push((val, i));
         }
-        ordering.sort_by(|(prob_a, _idx_a), (prob_b, _idx_b)| prob_b.partial_cmp(&prob_a).unwrap_or(Ordering::Equal));
-        let ordering = ordering.into_iter().map(|(_prob, idx)| idx).collect();
+        ordering.sort_by(|(val_a, _idx_a), (val_b, _idx_b)| val_b.partial_cmp(&val_a).unwrap_or(Ordering::Equal));
+        let ordering = ordering.into_iter().map(|(_val, idx)| idx).collect();
         ordering
     });
 

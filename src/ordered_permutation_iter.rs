@@ -27,7 +27,7 @@ pub struct OrderedPermutationIter<'a, T> {
     /// The highest value that the state has achieved for a given factor
     high_water_mark: Vec<usize>,
 
-    /// The threshold probability, corresponding to the last returned result
+    /// The threshold value, corresponding to the last returned result
     current_val: T,
 
     /// A place to stash future results with values that equal to the last-returned result
@@ -87,14 +87,14 @@ impl<'a, T> OrderedPermutationIter<'a, T>
             .map(|combined_val| (result, combined_val))
     }
     /// Searches the frontier around a state, looking for the next state that has the highest overall
-    /// probability, that is lower than the prob_threshold.  Returns None if it's impossible to advance
-    /// to a non-zero probability.
+    /// combined value, that is lower than the current_val.  Returns None if it's impossible to advance
+    /// to a valid value.
     /// 
     fn find_smallest_next_increment(&self) -> Option<Vec<(Vec<usize>, T)>> {
 
         let factor_count = self.factor_count();
 
-        let mut highest_prob = T::min_value();
+        let mut highest_val = T::min_value();
         let mut return_val = None;
 
         //GOAT TODO: Write up a better explanation of the alforithm overall, once it's fully debugged
@@ -121,9 +121,8 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                 continue;
             }
 
-            //Find the "bottoms", i.e. the lowest value each factor could possibly have
-            // given the "tops", without exceeding the probability threshold established by
-            // self.current_prob
+            //Find the "bottoms", i.e. the lowest value each factor could possibly have given
+            // the "tops", without exceeding the threshold established by self.current_val
             let mut bottoms = Vec::with_capacity(factor_count);
             for i in 0..factor_count {
                 let old_top = tops[i];
@@ -135,8 +134,8 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                     }
                     tops[i] = new_bottom; //Temporarily hijacking tops
                     let factors = self.factors_from_state(&tops);
-                    let prob = self.execute_combine_fn(&factors);
-                    if prob.is_some() && prob.unwrap() > self.current_val {
+                    let val = self.execute_combine_fn(&factors);
+                    if val.is_some() && val.unwrap() > self.current_val {
                         bottoms.push(new_bottom+1);
                         break;
                     } else {
@@ -198,29 +197,29 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                     }
                 }
     
-                if let Some(temp_prob) = self.execute_combine_fn(&temp_factors) {
-                    if temp_prob < self.current_val && temp_prob >= highest_prob {
+                if let Some(temp_val) = self.execute_combine_fn(&temp_factors) {
+                    if temp_val < self.current_val && temp_val >= highest_val {
 
-                        if temp_prob > highest_prob {
+                        if temp_val > highest_val {
                             //Replace the results with a fresh array
-                            highest_prob = temp_prob;
-                            return_val = Some(vec![(temp_state.clone(), highest_prob)]);
+                            highest_val = temp_val;
+                            return_val = Some(vec![(temp_state.clone(), highest_val)]);
                         } else {
-                            //We can infer temp_prob == highest_prob if we got here, so
+                            //We can infer temp_val == highest_val if we got here, so
                             // append to the results array
-                            return_val.as_mut().unwrap().push((temp_state.clone(), highest_prob));
+                            return_val.as_mut().unwrap().push((temp_state.clone(), highest_val));
                         }
                     }
                 }
             }
         }
 
-        //See if there are any additional results with the same probability, adjacent to the
+        //See if there are any additional results with the same combined value, adjacent to the
         // results we found
         if let Some(results) = &mut return_val.as_mut() {
             let mut new_results = results.clone();
-            for (result, prob) in results.iter() {
-                self.find_adjacent_equal_permutations(result, *prob, &mut new_results);
+            for (result, val) in results.iter() {
+                self.find_adjacent_equal_permutations(result, *val, &mut new_results);
             }
             **results = new_results;
         }
@@ -229,9 +228,9 @@ impl<'a, T> OrderedPermutationIter<'a, T>
     }
     //An Adjacent Permutation is defined as a permutation that can be created by adding 1 to one
     // factor.  This function will find all adjacent permutations from the supplied state, with a
-    // value equal to the supplied "prob" argument.  It will also find the equal permutations from
+    // value equal to the supplied "val" argument.  It will also find the equal permutations from
     // all found permutations, recursively.
-    fn find_adjacent_equal_permutations(&self, state: &[usize], prob: T, results: &mut Vec<(Vec<usize>, T)>) {
+    fn find_adjacent_equal_permutations(&self, state: &[usize], val: T, results: &mut Vec<(Vec<usize>, T)>) {
 
         let factor_count = self.factor_count();
         let mut new_state = state.to_owned();
@@ -241,7 +240,7 @@ impl<'a, T> OrderedPermutationIter<'a, T>
             //Increment the state by 1 and get the new value
             new_state[0] += 1;
             let mut cur_digit = 0;
-            let mut temp_prob = if new_state[cur_digit] < self.sorted_dists[cur_digit].len() {
+            let mut temp_val = if new_state[cur_digit] < self.sorted_dists[cur_digit].len() {
                 let factors = self.factors_from_state(&new_state);
                 self.execute_combine_fn(&factors)
             } else {
@@ -253,7 +252,7 @@ impl<'a, T> OrderedPermutationIter<'a, T>
             // we've incremented one factor to the end, and 2.) If the new combined value is too
             // small, indicating the factor shouldn't be considered in an equal permutation
             while new_state[cur_digit] == self.sorted_dists[cur_digit].len()
-                || (temp_prob.is_some() && temp_prob.unwrap() < prob) {
+                || (temp_val.is_some() && temp_val.unwrap() < val) {
 
                 new_state[cur_digit] = state[cur_digit];
                 cur_digit += 1;
@@ -265,14 +264,14 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                 new_state[cur_digit] += 1;
                 if new_state[cur_digit] < self.sorted_dists[cur_digit].len() {
                     let factors = self.factors_from_state(&new_state);
-                    temp_prob = self.execute_combine_fn(&factors);
+                    temp_val = self.execute_combine_fn(&factors);
                 }
             }
             
-            if temp_prob.is_some() && temp_prob.unwrap() == prob {
+            if temp_val.is_some() && temp_val.unwrap() == val {
                 //Check for duplicates, and add this state if it's unique
-                if results.iter().position(|(element_state, _prob)| *element_state == new_state).is_none() {
-                    results.push((new_state.clone(), prob));
+                if results.iter().position(|(element_state, _val)| *element_state == new_state).is_none() {
+                    results.push((new_state.clone(), val));
                 }
             } else {
                 break;
@@ -292,18 +291,18 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
         let factor_count = self.factor_count();
 
         //If we have some results in the stash, return those first
-        if let Some((new_state, new_prob)) = self.result_stash.pop() {
+        if let Some((new_state, new_val)) = self.result_stash.pop() {
             self.state = new_state;
-            self.current_val = new_prob;
+            self.current_val = new_val;
 
             return self.state_to_result();
         }
 
-        //Find the next configuration with the smallest incremental impact to probability
+        //Find the next configuration with the smallest incremental impact to the combined value
         if let Some(new_states) = self.find_smallest_next_increment() {
         
             //Advance the high-water mark for all returned states
-            for (new_state, _new_prob) in new_states.iter() {
+            for (new_state, _new_val) in new_states.iter() {
                 for i in 0..factor_count {
                     if new_state[i] > self.high_water_mark[i] {
                         self.high_water_mark[i] = new_state[i];
@@ -315,9 +314,9 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
             self.result_stash = new_states;
 
             //Return one result from our stash
-            let (new_state, new_prob) = self.result_stash.pop().unwrap();
+            let (new_state, new_val) = self.result_stash.pop().unwrap();
             self.state = new_state;
-            self.current_val = new_prob;
+            self.current_val = new_val;
 
             return self.state_to_result();
                 
@@ -332,7 +331,7 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 //3. Do a test with a function that does more than just multiplying all the factors together
 
 //√a. search for the word "letter", replace with "factor"
-//b. search for the word "prob", replace with "element"
+//√b. search for the word "prob", replace with "element"
 //√c. rename "permuted" to swizzled to avoid confusion
 
 //Dust off that simplistic dictionary for words, to make a word_db lookup test & example
