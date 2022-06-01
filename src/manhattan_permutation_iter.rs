@@ -76,19 +76,19 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
             0
         };
 
-        let mut permuted_state = vec![0; self.factor_count()];
+        let mut swizzled_state = vec![0; self.factor_count()];
         for (i, &idx) in self.orderings[ordering_idx].iter().enumerate() {
-            permuted_state[idx] = self.state[i];
+            swizzled_state[idx] = self.state[i];
         }
 
-        //Create an array of factors from the permuted state
+        //Create an array of factors from the swizzled state
         //TODO: We could save a Vec allocation by merging the loops above and below this one
         let mut factors = Vec::with_capacity(self.factor_count());
-        for (slot_idx, sorted_idx) in permuted_state.iter().enumerate() {
+        for (slot_idx, sorted_idx) in swizzled_state.iter().enumerate() {
             factors.push(self.sorted_dists[slot_idx][*sorted_idx].1);
         }
 
-        let result = permuted_state.iter()
+        let result = swizzled_state.iter()
             .enumerate()
             .map(|(slot_idx, sorted_letter_idx)| self.sorted_dists[slot_idx][*sorted_letter_idx].0)
             .collect();
@@ -116,10 +116,10 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
 
         // Scan the state from right to left looking for the first value that can be shifted right.
         let mut found_factor = factor_count-1;
-        let mut permuted_factor = self.orderings[ordering_idx][found_factor];
-        while found_factor > 0 && (self.state[found_factor-1] == 0 || self.state[found_factor] == self.sorted_dists[permuted_factor].len()-1) {
+        let mut swizzled_factor = self.orderings[ordering_idx][found_factor];
+        while found_factor > 0 && (self.state[found_factor-1] == 0 || self.state[found_factor] == self.sorted_dists[swizzled_factor].len()-1) {
             found_factor -= 1;
-            permuted_factor = self.orderings[ordering_idx][found_factor];
+            swizzled_factor = self.orderings[ordering_idx][found_factor];
         }
 
         //Make sure we have something to decrement and that we also have a place to put that value
@@ -133,8 +133,8 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
             //Reset the state for scanning permutations at the new distance_threshold
             let mut remaining_distance = self.distance_threshold;
             for (i, factor) in self.state.iter_mut().enumerate() {
-                let permuted_i = self.orderings[ordering_idx][i];
-                let max_factor = self.sorted_dists[permuted_i].len()-1;
+                let swizzled_i = self.orderings[ordering_idx][i];
+                let max_factor = self.sorted_dists[swizzled_i].len()-1;
                 if remaining_distance > max_factor {
                     *factor = max_factor;
                     remaining_distance -= max_factor;
@@ -166,8 +166,8 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
             // Put the remaining "distance" into the factor(s) immediately to the right of that
             // decremented factor, and zero out the remainder of the factors to the right.
             for i in found_factor..factor_count {
-                let permuted_i = self.orderings[ordering_idx][i];
-                let max_factor = self.sorted_dists[permuted_i].len()-1;
+                let swizzled_i = self.orderings[ordering_idx][i];
+                let max_factor = self.sorted_dists[swizzled_i].len()-1;
                 if remaining_distance > max_factor {
                     self.state[i] = max_factor;
                     remaining_distance -= max_factor;

@@ -323,10 +323,11 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 
 //a. search for the word "letter", replace with "factor"
 //b. search for the word "prob", replace with "element"
+//√c. rename "permuted" to swizzled to avoid confusion
 
 //Get rid of the need to supply order_perm_iter with a max_val, by adding an epoch to the val at 0,0,0,0
 
-//Dust off that simplistic database for words, to make a word_db lookup test & example
+//Dust off that simplistic dictionary for words, to make a word_db lookup test & example
 
 //Future needs:
 //High performance for equal-path

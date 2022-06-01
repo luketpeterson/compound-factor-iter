@@ -80,26 +80,19 @@ impl<'a, T> RadixPermutationIter<'a, T>
         //Which ordering we use depends on how far into the sequence we are
         let ordering_idx = (self.max_digit-1).min(2);
 
-        let mut permuted_state = vec![0; self.factor_count()];
+        let mut swizzled_state = vec![0; self.factor_count()];
         for (i, &idx) in self.orderings[ordering_idx].iter().enumerate() {
-            permuted_state[idx] = self.state[i];
+            swizzled_state[idx] = self.state[i];
         }
 
-
-//FUUUUUCKCKCK GOAT.  We need to fix this several ways...
-//√1. When we step forward the state, we need to be cognizant of the number of elements for a given factor. 
-//2. When we switch to a different regime, we need to premute the state because we can't assume it's
-// uniform anymore....
-//
-
-        //Create an array of factors from the permuted state
+        //Create an array of factors from the swizzled state
         //TODO: We could save a Vec allocation by merging the loops above and below this one
         let mut factors = Vec::with_capacity(self.factor_count());
-        for (slot_idx, sorted_idx) in permuted_state.iter().enumerate() {
+        for (slot_idx, sorted_idx) in swizzled_state.iter().enumerate() {
             factors.push(self.sorted_dists[slot_idx][*sorted_idx].1);
         }
 
-        let result = permuted_state.iter()
+        let result = swizzled_state.iter()
             .enumerate()
             .map(|(slot_idx, sorted_letter_idx)| self.sorted_dists[slot_idx][*sorted_letter_idx].0)
             .collect();
@@ -123,9 +116,9 @@ impl<'a, T> RadixPermutationIter<'a, T>
 
         self.state[0] += 1;
         let mut cur_digit = 0;
-        let mut permuted_cur_digit = self.orderings[ordering_idx][cur_digit];
+        let mut swizzled_cur_digit = self.orderings[ordering_idx][cur_digit];
         while self.state[cur_digit] > self.max_digit ||
-            self.state[cur_digit] >= self.sorted_dists[permuted_cur_digit].len() {
+            self.state[cur_digit] >= self.sorted_dists[swizzled_cur_digit].len() {
 
             self.state[cur_digit] = 0;
             cur_digit += 1;
@@ -142,7 +135,7 @@ impl<'a, T> RadixPermutationIter<'a, T>
                 }
             }
 
-            permuted_cur_digit = self.orderings[ordering_idx][cur_digit];
+            swizzled_cur_digit = self.orderings[ordering_idx][cur_digit];
         }
 
         //If all digits are below self.max_digit, then we've already hit this permutations when
@@ -156,11 +149,11 @@ impl<'a, T> RadixPermutationIter<'a, T>
         }
         if local_max_digit < self.max_digit {
             let mut i = 0;
-            let mut permuted_i = self.orderings[ordering_idx][i];
-            while self.max_digit >= self.sorted_dists[permuted_i].len() {
+            let mut swizzled_i = self.orderings[ordering_idx][i];
+            while self.max_digit >= self.sorted_dists[swizzled_i].len() {
                 self.state[i] = 0;
                 i += 1;
-                permuted_i = self.orderings[ordering_idx][i];
+                swizzled_i = self.orderings[ordering_idx][i];
             }
             self.state[i] = self.max_digit;
         }
