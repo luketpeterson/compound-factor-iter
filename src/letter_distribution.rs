@@ -11,6 +11,7 @@ use crate::*;
 
 const BRANCHING_FACTOR: usize = 26;  //26 letters in the alphabet
 
+/// A collection of letter probabilities useful for representing a potential word
 #[derive(Debug, Clone, Default)]
 pub struct LetterDistribution {
     /// The probability of each possible letter in each position.  Each inner array summs to 1.0
@@ -18,6 +19,7 @@ pub struct LetterDistribution {
 }
 
 impl LetterDistribution {
+    /// Sets a single letter's probability, re-normalizing other letters if necessary
     pub fn set_letter_prob(&mut self, letter_idx: usize, letter: char, new_prob: f32) {
 
         let letter_ord = char_to_idx(letter).unwrap();
@@ -53,7 +55,7 @@ impl LetterDistribution {
         new_dist
     }
     /// Makes a random LetterDistribution, used for testing.  A random distribution is
-    /// probably the hardest possible case
+    /// probably the hardest possible case to explore
     pub fn random<F: Fn(usize, usize, &mut Pcg64)->f32>(letter_count: usize, active_letters: usize, rng: &mut Pcg64, f: F) -> Self {
 
         let mut letter_probs = Vec::with_capacity(letter_count);
@@ -76,14 +78,16 @@ impl LetterDistribution {
         new_dist.normalize();
         new_dist
     }
+    /// Returns the number of letters in a distribution
     pub fn letter_count(&self) -> usize {
         self.letter_probs.len()
     }
+    /// Returns a slice of slices, to access the individual letter probabilities
     pub fn letter_probs(&self) -> &[[f32; BRANCHING_FACTOR]] {
         &self.letter_probs
     }
     /// Returns an iterator that will generate the possible strings from a LetterDistribution,
-    /// in descending order of probability, along with their probability
+    /// in descending order of probability, along with their probability.  Based on [OrderedPermutationIter]
     pub fn ordered_permutations(&self) -> OrderedPermutationIter<f32> {
         //PERF NOTE: Although the code in this closure is line-for-line IDENTICAL to the code in
         // Self::compound_probs, having this closure declared inline like this is about 15% faster.
@@ -106,9 +110,11 @@ impl LetterDistribution {
             }
         })
     }
+    /// Returns an iterator similar to [ordered_permutations], but based on [ManhattanPermutationIter]
     pub fn manhattan_permutations(&self) -> ManhattanPermutationIter<f32> {
         ManhattanPermutationIter::new(self.letter_probs.iter(), &Self::compound_probs)
     }
+    /// Returns an iterator similar to [ordered_permutations], but based on [RadixPermutationIter]
     pub fn radix_permutations(&self) -> RadixPermutationIter<f32> {
         RadixPermutationIter::new(self.letter_probs.iter(), &Self::compound_probs)
     }
@@ -157,7 +163,7 @@ impl fmt::Display for LetterDistribution {
     }
 }
 
-//Returns None for spaces, punctuation, etc.
+/// Returns an index, 0 to 25, for a given alphabetic letter.  Returns None for spaces, punctuation, etc.
 pub fn char_to_idx(c: char) -> Option<usize> {
 
     if c.is_ascii() {
@@ -173,13 +179,14 @@ pub fn char_to_idx(c: char) -> Option<usize> {
     }
 }
 
+/// A tree made of letters useful for storing a collection of words, ie a dictionary.
 #[derive(Debug, Clone, Default)]
 pub struct LetterTree {
     children: [Option<Box<LetterTree>>; BRANCHING_FACTOR],
 }
 
 impl LetterTree {
-    /// Creates a new LetterTree from a 1-word-per-line file, such as /usr/share/dict/words
+    /// Creates a new LetterTree from a 1-word-per-line file, such as `/usr/share/dict/words`
     pub fn new_from_dict_file<P: AsRef<Path>>(file_path: P) -> Self {
 
         let f = fs::File::open(file_path).unwrap();

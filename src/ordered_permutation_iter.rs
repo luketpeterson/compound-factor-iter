@@ -355,7 +355,3 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
         }
     }
 }
-
-// GOAT,
-
-//Cargo.toml keys
