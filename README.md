@@ -50,39 +50,7 @@ for (permutation, prob) in OrderedPermutationIter::new(letter_probs.iter(), &pro
 
 Using the [ManhattanPermutationIter] or the [RadixPermutationIter] is exactly the same.
 
-```rust
-# use compound_factor_iter::*;
-#
-# fn idx_to_char(idx: usize) -> char {
-#    char::from_u32((idx+97) as u32).unwrap()
-# }
-#
-# fn char_to_idx(c: char) -> usize {
-#    (c as usize) - 97
-# }
-#
-# let mut letter_probs = [[0.0; 26]; 3];
-# letter_probs[0][char_to_idx('b')] = 0.4;
-# letter_probs[0][char_to_idx('c')] = 0.35;
-# letter_probs[0][char_to_idx('h')] = 0.25;
-# letter_probs[1][char_to_idx('a')] = 1.0;
-# letter_probs[2][char_to_idx('m')] = 0.35;
-# letter_probs[2][char_to_idx('t')] = 0.65;
-#
-# let product_fn = |probs: &[f32]|{
-#
-#    let mut new_prob = 1.0;
-#    for prob in probs.into_iter() {
-#        new_prob *= prob;
-#    }
-#
-#    if new_prob > 0.0 {
-#        Some(new_prob)
-#    } else {
-#        None
-#    }
-# };
-#
+```rust ignore
 for (permutation, prob) in ManhattanPermutationIter::new(letter_probs.iter(), &product_fn) {
     let word: String = permutation.into_iter().map(|idx| idx_to_char(idx)).collect();
     println!("permutation = {}, prob = {}", word, prob);
@@ -119,7 +87,7 @@ Build with the `--features letter_distribution` feature enabled to get a handy-d
 
 ## More Examples
 
-Many more examples can be found by looking at the [tests.rs](GOAT github link) file.
+Many more examples can be found by looking at the [tests.rs](https://github.com/luketpeterson/compound-factor-iter/blob/main/src/tests.rs) file.
 
 ## Future Work
 

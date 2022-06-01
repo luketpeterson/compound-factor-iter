@@ -2,6 +2,7 @@
 name = "compound_factor_iter"
 version = "0.1.0"
 edition = "2021"
+description = "Iterator types for output permutations from a function combining multiple discrete factors"
 #algorithms
 
 
