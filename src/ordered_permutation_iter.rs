@@ -1,8 +1,17 @@
 
 use std::cmp::Ordering;
 
-///GOAT, better description, explain algorithm
+/// An expensive permutation iterator guaranteed to return results in order, from highest to lowest.
 /// 
+/// The algorithm works by exhaustively exploring a "frontier region" where results transition from
+/// greater than a previous result to less than a previous result.  Because of the multi-dimensional
+/// nature of this frontier, the algorithm must try every possible permutation within the frontier
+/// region to be sure the next-highest result is found.
+/// 
+/// The algorithm can be **insanely** expensive because it needs to invoke the `combination_fn`
+/// closure potentially `n*2^n` times at each step, where `n` is the number of factors.
+/// Due to the cost, the OrderedPermutationIter is only for situaitions where out-of-order
+/// results are unaccaptable.  **Otherwise, [ManhattanPermutationIter](crate::ManhattanPermutationIter) is recommended.**
 /// 
 /// ## Future Work
 ///
@@ -92,12 +101,32 @@ impl<'a, T> OrderedPermutationIter<'a, T>
     /// 
     fn find_smallest_next_increment(&self) -> Option<Vec<(Vec<usize>, T)>> {
 
+        //Explanation of overall algorithm:
+        //
+        //The algorithm maintains a "frontier region" between the positions of "tops" and "bottoms"
+        //First, "tops" are set, and then "bottoms" are discovered based on "tops".  Higher tops
+        // results in less constraining pressure and therfore lower bottoms as well, making the
+        // search space explode.  Therefore we need to be very judicious about advancing "tops"
+        //
+        //This algorithm consists of 3 nested loops.
+        //
+        //1. The outermost loop is the "factor_to_advance" loop, which iterates for each factor
+        // plus a final iteration that advances no factors.  The idea is that we advance each single
+        // factor to the furthest point it's ever been to for a new "top" on that factor alone.
+        // Then we search for permutations using that particular frontier, and repeat for each factor.
+        //
+        //2. The "while !finished" loop is the hairy one.  It systematically tries every permutation
+        // between tops and bottoms. This loop can iterate 2^n times for n factors, and sometimes more
+        //
+        //3. The "rollover loop", aka `while temp_state[cur_factor] > tops[cur_factor]` is effectively
+        // just an incrementor for a mixed-radix number.  It's carrying forward the increments until
+        // it finds a place to put them, or determines the iteration is finished
+        //
+        
         let factor_count = self.factor_count();
 
         let mut highest_val = T::min_value();
         let mut return_val = None;
-
-        //GOAT TODO: Write up a better explanation of the alforithm overall, once it's fully debugged
 
         //NOTE: when factor_to_advance == factor_count, that means we don't attempt to advance any factor
         for factor_to_advance in 0..(factor_count+1) {

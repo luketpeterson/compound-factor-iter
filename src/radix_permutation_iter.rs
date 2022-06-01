@@ -3,13 +3,24 @@ use std::cmp::Ordering;
 
 use crate::common::*;
 
-///GOAT, better description, explain algorithm
+/// A fast permutation iterator based on a counting with a mixed-radix number.
 /// 
-/// A fast permutation iterator based on traversal through a mixed-radix space.
-/// This is much much faster than the ordered search, although it may return
-/// some results out of order.
+/// In the majority of situations, the [ManhattanPermutationIter](crate::ManhattanPermutationIter)
+/// will produce a higher quality sequence, but the RadixPermutationIter is appropriate when
+/// some factors have vastly more influence over the function result than others.  This can
+/// be caused by the function itself or by the input factor values, so it is recommended to
+/// try both iterators to determine the best one for your situation.
 /// 
-
+/// ## Sequence Characterisitcs
+/// 
+/// On average, all results in the set of `n` iterations of the [OrderedPermutationIter](crate::OrderedPermutationIter) will occur
+/// in the set of `k*n^2` iterations of the RadixPermutationIter, where `k` is a constant.
+/// Empirically I have found `k` is usually between `3` and `10` for the data sets I've tested.
+/// 
+/// For long sequences, RadixPermutationIter is considerably worse than [ManhattanPermutationIter](crate::ManhattanPermutationIter),
+/// however there are certain situations where RadixPermutationIter will produce a better sequence,
+/// especially with short sequences and within certain bounded ranges of results.
+/// 
 pub struct RadixPermutationIter<'a, T> {
 
     /// The individual distributions we're iterating the permutations of

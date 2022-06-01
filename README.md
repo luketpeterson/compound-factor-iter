@@ -119,7 +119,7 @@ Build with the `--features letter_distribution` feature enabled to get a handy-d
 
 ## More Examples
 
-GOAT, SEE TESTS
+Many more examples can be found by looking at the [tests.rs](GOAT github link) file.
 
 ## Future Work
 
