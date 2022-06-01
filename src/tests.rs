@@ -351,7 +351,7 @@ fn ordered_test_7() {
         println!("");
     }
 
-    let perm_iter = OrderedPermutationIter::new(test_dist.iter(), u32::MAX, &|products|{
+    let perm_iter = OrderedPermutationIter::new(test_dist.iter(), &|products|{
 
         let mut new_product: u32 = 1;
         for product in products.iter() {
@@ -395,7 +395,7 @@ fn ordered_test_8() {
     println!("\nfactor_element_counts {:?}", factor_element_counts);
     println!("expected_perm_count {}", expected_perm_count);
 
-    let perm_iter = OrderedPermutationIter::new(test_dist.iter(), u32::MAX, &|products|{
+    let perm_iter = OrderedPermutationIter::new(test_dist.iter(), &|products|{
 
         let mut new_product: u32 = 1;
         for product in products.iter() {
@@ -600,7 +600,7 @@ fn radix_test_4() {
     let results: Vec<(Vec<usize>, u32)> = RadixPermutationIter::new(test_dist.iter(), &product_fn).collect();
     let grouped_results = group_result_by_prob(results);
 
-    let ordered: Vec<(Vec<usize>, u32)> = OrderedPermutationIter::new(test_dist.iter(), u32::MAX, &product_fn).collect();
+    let ordered: Vec<(Vec<usize>, u32)> = OrderedPermutationIter::new(test_dist.iter(), &product_fn).collect();
     // for (i, (possible_word, word_prob)) in ordered.iter().enumerate() {
     //     println!("G--{}: {:?} {}", i, possible_word, word_prob);
     // }
@@ -783,7 +783,7 @@ fn manhattan_test_4() {
     let results: Vec<(Vec<usize>, u32)> = ManhattanPermutationIter::new(test_dist.iter(), &product_fn).collect();
     let grouped_results = group_result_by_prob(results);
 
-    let ordered: Vec<(Vec<usize>, u32)> = OrderedPermutationIter::new(test_dist.iter(), u32::MAX, &product_fn).collect();
+    let ordered: Vec<(Vec<usize>, u32)> = OrderedPermutationIter::new(test_dist.iter(), &product_fn).collect();
     // for (i, (possible_word, word_prob)) in ordered.iter().enumerate() {
     //     println!("G--{}: {:?} {}", i, possible_word, word_prob);
     // }

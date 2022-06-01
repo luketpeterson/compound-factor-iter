@@ -42,7 +42,7 @@ let product_fn = |probs: &[f32]|{
     }
 };
 
-for (permutation, prob) in OrderedPermutationIter::new(letter_probs.iter(), 1.0, &product_fn) {
+for (permutation, prob) in OrderedPermutationIter::new(letter_probs.iter(), &product_fn) {
     let word: String = permutation.into_iter().map(|idx| idx_to_char(idx)).collect();
     println!("permutation = {}, prob = {}", word, prob);
 }

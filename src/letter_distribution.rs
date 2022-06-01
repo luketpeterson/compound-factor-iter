@@ -139,7 +139,7 @@ impl LetterDistribution {
         // Self::compound_probs, having this closure declared inline like this is about 15% faster.
         // My guess is that the compiler turns on some optimizations for inline closures that aren't
         // used when the function is declared elsewhere.
-        OrderedPermutationIter::new(self.letter_probs.iter(), 1.0, &|probs|{
+        OrderedPermutationIter::new(self.letter_probs.iter(), &|probs|{
 
             // NOTE: we perform the arithmetic in 64-bit, even though we only care about a 32-bit
             // result, because we need the value to be very, very stable, or we run the risk of

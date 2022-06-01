@@ -38,7 +38,7 @@ impl<'a, T> OrderedPermutationIter<'a, T>
     where
     T: Copy + PartialOrd + num_traits::Bounded,
 {
-    pub fn new<E: AsRef<[T]>, F: Fn(&[T]) -> Option<T>>(factor_iter: impl Iterator<Item=E>, starting_val: T, combination_fn: &'a F) -> Self {
+    pub fn new<E: AsRef<[T]>, F: Fn(&[T]) -> Option<T>>(factor_iter: impl Iterator<Item=E>, combination_fn: &'a F) -> Self {
 
         let sorted_dists: Vec<Vec<(usize, T)>> = factor_iter
             .map(|factor_dist| {
@@ -55,7 +55,7 @@ impl<'a, T> OrderedPermutationIter<'a, T>
             combination_fn,
             state: vec![0; factor_count],
             high_water_mark: vec![0; factor_count],
-            current_val: starting_val,
+            current_val: T::max_value(),
             result_stash: vec![],
         }
     }
@@ -334,8 +334,6 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 //a. search for the word "letter", replace with "factor"
 //b. search for the word "prob", replace with "element"
 //√c. rename "permuted" to swizzled to avoid confusion
-
-//Get rid of the need to supply order_perm_iter with a max_val, by adding an epoch to the val at 0,0,0,0
 
 //Dust off that simplistic dictionary for words, to make a word_db lookup test & example
 
