@@ -98,19 +98,24 @@ All 3 iterator types have exactly the same interface and can be used interchange
 ### OrderedPermutationIter
 The [OrderedPermutationIter] is guaranteed to return results in order, from highest to lowest.  However, it can be **insanely** expensive because it needs to invoke the `combination_fn` closure potentially `n*2^n` times at each step, where `n` is the number of factors.
 
-In general, the OrderedPermutationIter is only for situaitions where out-of-order results are unaccaptable.
-
-GOAT, move this explanation to the Iterator's description page.  Elaborate providing a more detailed algorithmic explanation.
+Due to the cost, the OrderedPermutationIter is only for situaitions where out-of-order results are unaccaptable.
 
 ### ManhattanPermutationIter
+The [ManhattanPermutationIter] is a fixed-cost iterator that uses a simple heuristic to systematically explore outward from the known best permutation.  Unlike OrderedPermutationIter, ManhattanPermutationIter may return results out of order, however the heuristic ensures the results
+mainly trend lower as the iteration progresses.
 
-GOAT
+The word "Manhattan" comes from the fact that permutations are tried in an order determined by their [Manhattan Distance](https://en.wikipedia.org/wiki/Taxicab_geometry) from the single best permutation.
+
+ManhattanPermutationIter is the best choice in most situations.
 
 ### RadixPermutationIter
-
-GOAT
+The [RadixPermutationIter] is another fixed-cost iterator implemented as a counter in a [Mixed Radix](https://en.wikipedia.org/wiki/Mixed_radix) number space.
 
 In the majority of situations, the [ManhattanPermutationIter] will produce a higher quality sequence, but the [RadixPermutationIter] is appropriate when some factors have vastly more influence over the function result than others.  This can be caused by the function itself or by the input factor values, so it is recommended to try both iterators to determine the best one for your situation.
+
+## The letter_distribution feature
+
+Build with the `--features letter_distribution` feature enabled to get a handy-dandy object for representing a distribution of alphabetic letters, like what is described in the examples above.  This is used in many of the tests
 
 ## More Examples
 
@@ -118,3 +123,4 @@ GOAT, SEE TESTS
 
 ## Future Work
 
+* Reversible option.  Currently all iterators iterate from highest value to lowest value.  In some situations it may be desirable to iterate from lowest value to highest.

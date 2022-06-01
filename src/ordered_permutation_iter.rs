@@ -3,6 +3,16 @@ use std::cmp::Ordering;
 
 ///GOAT, better description, explain algorithm
 /// 
+/// 
+/// ## Future Work
+///
+/// * High performance "Equal" path in OrderedPermutationIter.  Currently OrderedPermutationIter
+/// buffers up results with an equal value found during one exploration.  Then it returns
+/// results out of that buffer until they are exhausted after which it begins another search.
+/// This assumes equal-value results are an exception.  In use-cases where they are numerous, a
+/// better approach would be to have two traversal modes, one mode searching for the best
+/// next-result and the other mode scanning for the next equal-result.
+///
 pub struct OrderedPermutationIter<'a, T> {
 
     /// The individual distributions we're iterating the permutations of
@@ -330,8 +340,6 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 //Dust off that simplistic dictionary for words, to make a word_db lookup test & example
 
 //Future needs:
-//High performance for equal-path
-//Reversible.
 //Sensitiveity map for radix iter.
 
 //Make a LetterDistribution example 

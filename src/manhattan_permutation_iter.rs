@@ -9,6 +9,15 @@ use crate::common::*;
 /// This is much much faster than the ordered search, although it may return
 /// some results out of order.
 /// 
+/// 
+/// The word "Manhattan" comes from the fact that permutations are tried in an
+/// order determined by their [Manhattan Distance](https://en.wikipedia.org/wiki/Taxicab_geometry).
+/// 
+/// If you conceptualize the space of all possible permutations as an n-dimensional hypercube with
+/// one dimension for each factor, and each step along a dimension involves swapping a factor's
+/// value for the next-smaller value, then the ManhattanPermutationIter will systematically explore
+/// all permutations at each distance before incrementing the distance by one.
+/// 
 pub struct ManhattanPermutationIter<'a, T> {
 
     /// The individual distributions we're iterating the permutations of
