@@ -837,3 +837,67 @@ fn search_dict_test() {
         }
     }
 }
+
+#[test]
+/// Tests iterators with non-multiplicative combination_fn
+fn non_multiplicative_fn_test() {
+
+    //A random 4^4 set (256 permutations)
+    let mut rng = Pcg64::seed_from_u64(1);
+    let mut test_dist: Vec<Vec<u32>> = vec![];
+    for _ in 0..4 {
+        let mut inner_dist = vec![];
+        for _ in 0..4 {
+            inner_dist.push(rng.gen_range(0..256));
+        }
+        test_dist.push(inner_dist);
+    }
+
+    println!("    -1-  -2-  -3-  -4-");
+    for i in 0..4 {
+        print!("{} -", i);
+        for inner_dist in test_dist.iter() {
+            print!("{:>4} ", inner_dist[i]);
+        }
+        println!("");
+    }
+
+    let non_multiplicative_fn = |values: &[u32]| {
+
+        let mut new_value: u32 = 0;
+        for (i, val) in values.iter().enumerate() {
+            new_value += (i as u32) * 256 * val;
+        }
+
+        Some(new_value)
+    };
+
+    let ordered: Vec<(Vec<usize>, u32)> = OrderedPermutationIter::new(test_dist.iter(), &non_multiplicative_fn).collect();
+
+    let mut ground_truth = ordered.clone();
+    ground_truth.sort_by(|(_element_a, val_a), (_element_b, val_b)| val_b.partial_cmp(val_a).unwrap_or(Ordering::Equal));
+
+    //Test the ordered permutations are identical to the ground truth
+    assert_eq!(ordered, ground_truth);
+
+    //Compare the Manhattan output quality using a distance-squared-error formula
+    //Each out-of-place result adds the distance it is from its proper place in the sequence squared
+    // to the compound error.
+    //
+    let manhattan: Vec<(Vec<usize>, u32)> = ManhattanPermutationIter::new(test_dist.iter(), &non_multiplicative_fn).collect();
+    let mut total_err: u64 = 0;
+    for (i, manhattan_result) in manhattan.iter().enumerate() {
+        let truth_pos = ground_truth.iter().position(|element| element==manhattan_result).unwrap();
+        total_err += (truth_pos.abs_diff(i) as u64).pow(2);
+    }
+    println!("Manhattan Total Squared-Error: {}", total_err);
+
+    //And now do that for Radix
+    let radix: Vec<(Vec<usize>, u32)> = RadixPermutationIter::new(test_dist.iter(), &non_multiplicative_fn).collect();
+    let mut total_err: u64 = 0;
+    for (i, radix_result) in radix.iter().enumerate() {
+        let truth_pos = ground_truth.iter().position(|element| element==radix_result).unwrap();
+        total_err += (truth_pos.abs_diff(i) as u64).pow(2);
+    }
+    println!("Radix Total Squared-Error: {}", total_err);
+}

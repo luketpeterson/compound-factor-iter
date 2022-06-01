@@ -357,9 +357,6 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 }
 
 // GOAT,
-//3. Do a test with a function that does more than just multiplying all the factors together
-
-//Future needs:
 //Sensitiveity map for radix iter.
 
 //Cargo.toml keys
