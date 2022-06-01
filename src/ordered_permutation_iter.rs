@@ -357,6 +357,5 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 }
 
 // GOAT,
-//Sensitiveity map for radix iter.
 
 //Cargo.toml keys

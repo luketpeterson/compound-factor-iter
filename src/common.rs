@@ -33,7 +33,7 @@ use std::cmp::Ordering;
 // In the future, I may get rid of the multiple-regimes logic, and just stay with one
 // ordering throughout, in order to simplify the code.
 
-pub fn build_orderings<T>(sorted_dists: &Vec<Vec<(usize, T)>>, _combination_fn: &dyn Fn(&[T]) -> Option<T>) -> Vec<Vec<usize>>
+pub fn build_orderings<T>(sorted_dists: &Vec<Vec<(usize, T)>>, combination_fn: &dyn Fn(&[T]) -> Option<T>) -> Vec<Vec<usize>>
     where
     T: Copy + PartialOrd + num_traits::Bounded + num_traits::Zero + core::ops::Sub<Output=T>,
 {
@@ -46,11 +46,14 @@ pub fn build_orderings<T>(sorted_dists: &Vec<Vec<(usize, T)>>, _combination_fn: 
         //  the most factors, come from establishing ordering based on the
         //  difference between the top and second places.
         let mut ordering = Vec::with_capacity(factor_count);
-        for i in 0..factor_count {                    
-            let val_0 = sorted_dists[i][0].1;    
-            let val_1 = sorted_dists[i][1].1;
+        for i in 0..factor_count {   
 
-            ordering.push((val_0 - val_1, i));
+            let mut factors: Vec<T> = sorted_dists.iter().map(|inner_dist| inner_dist[0].1).collect();
+            let comb_val_0 = combination_fn(&factors).unwrap_or(T::zero());
+            factors[i] = sorted_dists[i][1].1;
+            let comb_val_1 = combination_fn(&factors).unwrap_or(T::zero());
+            
+            ordering.push((comb_val_0 - comb_val_1, i));
         }
         ordering.sort_by(|(val_a, _idx_a), (val_b, _idx_b)| val_a.partial_cmp(&val_b).unwrap_or(Ordering::Equal));
         let ordering = ordering.into_iter().map(|(_val, idx)| idx).collect();
@@ -64,9 +67,12 @@ pub fn build_orderings<T>(sorted_dists: &Vec<Vec<(usize, T)>>, _combination_fn: 
         // the second-place value
         let mut ordering = Vec::with_capacity(factor_count);
         for i in 0..factor_count {        
-            let val = sorted_dists[i][1].1;
 
-            ordering.push((val, i));
+            let mut factors: Vec<T> = sorted_dists.iter().map(|inner_dist| inner_dist[0].1).collect();
+            factors[i] = sorted_dists[i][1].1;
+            let comb_val = combination_fn(&factors).unwrap_or(T::zero());
+
+            ordering.push((comb_val, i));
         }
         ordering.sort_by(|(val_a, _idx_a), (val_b, _idx_b)| val_b.partial_cmp(&val_a).unwrap_or(Ordering::Equal));
         let ordering = ordering.into_iter().map(|(_val, idx)| idx).collect();
@@ -84,7 +90,12 @@ pub fn build_orderings<T>(sorted_dists: &Vec<Vec<(usize, T)>>, _combination_fn: 
             let mut l = 1;
             let mut val = T::zero();
             while l < factor_count && l < 3 && l < sorted_dists[i].len() {
-                val = val + sorted_dists[i][l].1;
+
+                let mut factors: Vec<T> = sorted_dists.iter().map(|inner_dist| inner_dist[0].1).collect();
+                factors[i] = sorted_dists[i][l].1;
+                let comb_val = combination_fn(&factors).unwrap_or(T::zero());
+
+                val = val + comb_val;
                 l += 1;
             }
 

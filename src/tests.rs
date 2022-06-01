@@ -887,6 +887,7 @@ fn non_multiplicative_fn_test() {
     let manhattan: Vec<(Vec<usize>, u32)> = ManhattanPermutationIter::new(test_dist.iter(), &non_multiplicative_fn).collect();
     let mut total_err: u64 = 0;
     for (i, manhattan_result) in manhattan.iter().enumerate() {
+        //println!("Manhattan --{}: {:?} {}", i, manhattan_result.0, manhattan_result.1);
         let truth_pos = ground_truth.iter().position(|element| element==manhattan_result).unwrap();
         total_err += (truth_pos.abs_diff(i) as u64).pow(2);
     }
@@ -896,6 +897,7 @@ fn non_multiplicative_fn_test() {
     let radix: Vec<(Vec<usize>, u32)> = RadixPermutationIter::new(test_dist.iter(), &non_multiplicative_fn).collect();
     let mut total_err: u64 = 0;
     for (i, radix_result) in radix.iter().enumerate() {
+        //println!("Radix --{}: {:?} {}", i, manhattan_result.0, manhattan_result.1);
         let truth_pos = ground_truth.iter().position(|element| element==radix_result).unwrap();
         total_err += (truth_pos.abs_diff(i) as u64).pow(2);
     }
