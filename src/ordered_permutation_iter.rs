@@ -122,7 +122,7 @@ impl<'a, T> OrderedPermutationIter<'a, T>
         // just an incrementor for a mixed-radix number.  It's carrying forward the increments until
         // it finds a place to put them, or determines the iteration is finished
         //
-        
+
         let factor_count = self.factor_count();
 
         let mut highest_val = T::min_value();
@@ -365,3 +365,5 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 //Sensitiveity map for radix iter.
 
 //Make a LetterDistribution example 
+
+//Cargo.toml keys

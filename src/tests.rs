@@ -309,7 +309,7 @@ fn ordered_test_5() {
 fn ordered_test_6() {
 
     let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
-    let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen()); //GOAT, this is the real test
+    let test_dist = LetterDistribution::random(12, 4, &mut rng, |_, _, rng| rng.gen());
     // let test_dist = LetterDistribution::random(20, 4, &mut rng, |_, _, rng| rng.gen());
     println!("{}", test_dist);
 
