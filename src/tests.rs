@@ -419,12 +419,6 @@ fn ordered_test_8() {
     assert_eq!(perm_cnt, expected_perm_count);
 }
 
-//TODO: New test idea
-//Pick a random dictionary word, generate a prob distribution where every letter of that
-// word has ~50% probability with the other 50% being spread among 4 other random letters.
-//Then pick N letters in the distribution to swap the target letter with one of the minor
-// probabilities of a bogie letter chosen at random.
-
 #[test]
 /// A basic test for the RadixPermutationIter
 fn radix_test_0() {
@@ -794,6 +788,12 @@ fn manhattan_test_4() {
 
 #[test]
 /// Search a dictionary for a specific word
+/// 
+/// Make a noisy distribution around a dictionary word, where every letter of that word
+/// has ~50% probability with the other 50% being spread among 2-4 other random letters.
+/// Then pick N letters in the distribution to really mess up the leters so a bogie letter
+/// has a much higher probability than the "correct" letter.
+/// 
 fn search_dict_test() {
 
     //Open the dictionary file
