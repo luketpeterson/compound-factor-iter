@@ -359,11 +359,7 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 // GOAT,
 //3. Do a test with a function that does more than just multiplying all the factors together
 
-//Dust off that simplistic dictionary for words, to make a word_db lookup test & example
-
 //Future needs:
 //Sensitiveity map for radix iter.
-
-//Make a LetterDistribution example 
 
 //Cargo.toml keys

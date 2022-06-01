@@ -89,6 +89,8 @@ Build with the `--features letter_distribution` feature enabled to get a handy-d
 
 Many more examples can be found by looking at the [tests.rs](https://github.com/luketpeterson/compound-factor-iter/blob/main/src/tests.rs) file.
 
+Check out the `search_dict_test()` function for a good example using `letter_distribution`.
+
 ## Future Work
 
 * Reversible option.  Currently all iterators iterate from highest value to lowest value.  In some situations it may be desirable to iterate from lowest value to highest.

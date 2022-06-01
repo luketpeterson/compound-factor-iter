@@ -791,3 +791,49 @@ fn manhattan_test_4() {
 
     assert!(compare_grouped_results(grouped_results, grouped_truth));
 }
+
+#[test]
+/// Search a dictionary for a specific word
+fn search_dict_test() {
+
+    //Open the dictionary file
+    let dict_tree = LetterTree::new_from_dict_file("/usr/share/dict/words");
+
+    let mut rng = Pcg64::seed_from_u64(1); //non-cryptographic random used for repeatability
+    
+    //"adventurous", on top of randomness
+    let mut test_dist = LetterDistribution::random(11, 3, &mut rng, |_, _, rng| rng.gen());
+    test_dist.set_letter_prob(0, 'a', 0.5);
+    test_dist.set_letter_prob(1, 'd', 0.5);
+    test_dist.set_letter_prob(2, 'v', 0.3);
+    test_dist.set_letter_prob(3, 'e', 0.5);
+    test_dist.set_letter_prob(4, 'n', 0.3);
+    test_dist.set_letter_prob(5, 't', 0.01);
+    test_dist.set_letter_prob(6, 'u', 0.5);
+    test_dist.set_letter_prob(7, 'r', 0.5);
+    test_dist.set_letter_prob(8, 'o', 0.01);
+    test_dist.set_letter_prob(9, 'u', 0.5);
+    test_dist.set_letter_prob(10, 's', 0.5);
+    println!("{}", test_dist);
+
+    //NOTE: this test really shows the difference between the Manhattan and the Radix iterator.  The
+    // Manhattan iter finds it in about 32K permutations, but the Radix iter takes 1.8M
+
+    //Iterate the permutations, and try looking each one up
+    for (i, (permutation, prob)) in test_dist.manhattan_permutations().enumerate().take(100000) {
+    //for (i, (permutation, prob)) in test_dist.radix_permutations().enumerate().take(2000000) {
+    //for (i, (permutation, prob)) in test_dist.ordered_permutations().enumerate() {
+        
+        let perm_string: String = permutation.into_iter().map(|idx| char::from((idx+97) as u8)).collect();
+        
+        // if i%100 == 0 {
+        //     println!("--{}: {:?} {}", i, perm_string, prob);
+        // }
+        
+        let matched_letters = dict_tree.search(&perm_string);
+        
+        if matched_letters+3 > perm_string.len() {
+            println!("idx = {}, raw_prob = {}, {} matches {} letters", i, prob, perm_string, matched_letters);
+        }
+    }
+}
