@@ -16,7 +16,5 @@ pub use manhattan_permutation_iter::ManhattanPermutationIter;
 #[cfg(test)]
 mod tests;
 
-#[cfg(test)]
-mod letter_distribution;
-
-
+#[cfg(any(test, feature = "letter_distribution"))]
+pub mod letter_distribution;

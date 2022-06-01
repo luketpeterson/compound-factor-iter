@@ -334,4 +334,4 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 //Reversible.
 //Sensitiveity map for radix iter.
 
-
+//Make a LetterDistribution example 
