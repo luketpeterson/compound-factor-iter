@@ -29,7 +29,7 @@ pub struct ManhattanPermutationIter<'a, T> {
     /// See common.rs for explanation
     orderings: Vec<Vec<usize>>,
 
-    /// The current position of the result, as indices into the sorted_letters arrays
+    /// The current position of the result, as indices into the sorted_dists arrays
     state: Vec<usize>,
 
     /// The manhattan distance of the current search
@@ -99,7 +99,7 @@ impl<'a, T> ManhattanPermutationIter<'a, T>
 
         let result = swizzled_state.iter()
             .enumerate()
-            .map(|(slot_idx, sorted_letter_idx)| self.sorted_dists[slot_idx][*sorted_letter_idx].0)
+            .map(|(slot_idx, sorted_factor_idx)| self.sorted_dists[slot_idx][*sorted_factor_idx].0)
             .collect();
 
         self.execute_combine_fn(&factors)

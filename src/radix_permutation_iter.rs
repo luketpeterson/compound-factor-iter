@@ -94,7 +94,7 @@ impl<'a, T> RadixPermutationIter<'a, T>
 
         let result = swizzled_state.iter()
             .enumerate()
-            .map(|(slot_idx, sorted_letter_idx)| self.sorted_dists[slot_idx][*sorted_letter_idx].0)
+            .map(|(slot_idx, sorted_factor_idx)| self.sorted_dists[slot_idx][*sorted_factor_idx].0)
             .collect();
 
         self.execute_combine_fn(&factors)

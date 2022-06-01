@@ -21,10 +21,10 @@ pub struct OrderedPermutationIter<'a, T> {
     /// A function capable of combining factors
     combination_fn: &'a dyn Fn(&[T]) -> Option<T>,
     
-    /// The current position of the result, as indices into the sorted_letters arrays
+    /// The current position of the result, as indices into the sorted_dists arrays
     state: Vec<usize>,
 
-    /// The highest value state has achieved for a given letter
+    /// The highest value that the state has achieved for a given factor
     high_water_mark: Vec<usize>,
 
     /// The threshold probability, corresponding to the last returned result
@@ -78,7 +78,7 @@ impl<'a, T> OrderedPermutationIter<'a, T>
         
         let result: Vec<usize> = self.state.iter()
             .enumerate()
-            .map(|(slot_idx, sorted_letter_idx)| self.sorted_dists[slot_idx][*sorted_letter_idx].0)
+            .map(|(slot_idx, sorted_factor_idx)| self.sorted_dists[slot_idx][*sorted_factor_idx].0)
             .collect();
 
         let factors = self.factors_from_state(&self.state);
@@ -99,29 +99,29 @@ impl<'a, T> OrderedPermutationIter<'a, T>
 
         //GOAT TODO: Write up a better explanation of the alforithm overall, once it's fully debugged
 
-        //NOTE: when letter_to_advance == factor_count, that means we don't attempt to advance any letter
-        for letter_to_advance in 0..(factor_count+1) {
+        //NOTE: when factor_to_advance == factor_count, that means we don't attempt to advance any factor
+        for factor_to_advance in 0..(factor_count+1) {
 
-            //The "tops" are the highest values each individual letter could possibly have and still reference
-            // the next combination in the sequence
-            let mut skip_letter = false;
+            //The "tops" are the highest values each individual factor could possibly have and still reference
+            // the next permutation in the sequence
+            let mut skip_factor = false;
             let mut tops = Vec::with_capacity(factor_count);
             for (i , &val) in self.high_water_mark.iter().enumerate() {
-                if i == letter_to_advance {
+                if i == factor_to_advance {
                     if val+1 < self.sorted_dists[i].len() {
                         tops.push(val+1);
                     } else {
-                        skip_letter = true;
+                        skip_factor = true;
                     }
                 } else {
                     tops.push(val);
                 }
             }
-            if skip_letter {
+            if skip_factor {
                 continue;
             }
 
-            //Find the "bottoms", i.e. the lowest value each letter could possibly have
+            //Find the "bottoms", i.e. the lowest value each factor could possibly have
             // given the "tops", without exceeding the probability threshold established by
             // self.current_prob
             let mut bottoms = Vec::with_capacity(factor_count);
@@ -149,9 +149,9 @@ impl<'a, T> OrderedPermutationIter<'a, T>
             //We need to check every combination of adjustments between tops and bottoms
             let mut temp_state = bottoms.clone();
             let mut temp_factors = self.factors_from_state(&temp_state);
-            if letter_to_advance < factor_count {
-                temp_state[letter_to_advance] = tops[letter_to_advance];
-                temp_factors[letter_to_advance] = self.sorted_dists[letter_to_advance][temp_state[letter_to_advance]].1;
+            if factor_to_advance < factor_count {
+                temp_state[factor_to_advance] = tops[factor_to_advance];
+                temp_factors[factor_to_advance] = self.sorted_dists[factor_to_advance][temp_state[factor_to_advance]].1;
             }
             let mut finished = false;
             while !finished {
@@ -160,37 +160,37 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                 //NOTE: It is impossible for the initial starting case (all bottoms) to be the
                 // next sequence element, because it's going to be the current sequence element
                 // or something earlier
-                let mut cur_letter;
-                if letter_to_advance != 0 {
+                let mut cur_factor;
+                if factor_to_advance != 0 {
                     temp_state[0] += 1;
                     if temp_state[0] < self.sorted_dists[0].len() {
                         temp_factors[0] = self.sorted_dists[0][temp_state[0]].1;
                     }
-                    cur_letter = 0;
+                    cur_factor = 0;
                 } else {
                     temp_state[1] += 1;
                     if temp_state[1] < self.sorted_dists[1].len() {
                         temp_factors[1] = self.sorted_dists[1][temp_state[1]].1;
                     }
-                    cur_letter = 1;
+                    cur_factor = 1;
                 }
 
                 //Deal with any rollover caused by the increment above
-                while temp_state[cur_letter] > tops[cur_letter] {
+                while temp_state[cur_factor] > tops[cur_factor] {
 
-                    temp_state[cur_letter] = bottoms[cur_letter];
-                    temp_factors[cur_letter] = self.sorted_dists[cur_letter][temp_state[cur_letter]].1;
-                    cur_letter += 1;
+                    temp_state[cur_factor] = bottoms[cur_factor];
+                    temp_factors[cur_factor] = self.sorted_dists[cur_factor][temp_state[cur_factor]].1;
+                    cur_factor += 1;
 
-                    //Skip over the letter_to_advance, which we're going to leave pegged to tops
-                    if cur_letter == letter_to_advance {
-                        cur_letter += 1;
+                    //Skip over the factor_to_advance, which we're going to leave pegged to tops
+                    if cur_factor == factor_to_advance {
+                        cur_factor += 1;
                     }
 
-                    if cur_letter < factor_count {
-                        temp_state[cur_letter] += 1;
-                        if temp_state[cur_letter] < self.sorted_dists[cur_letter].len() {
-                            temp_factors[cur_letter] = self.sorted_dists[cur_letter][temp_state[cur_letter]].1;
+                    if cur_factor < factor_count {
+                        temp_state[cur_factor] += 1;
+                        if temp_state[cur_factor] < self.sorted_dists[cur_factor].len() {
+                            temp_factors[cur_factor] = self.sorted_dists[cur_factor][temp_state[cur_factor]].1;
                         }
                     } else {
                         finished = true;
@@ -233,7 +233,7 @@ impl<'a, T> OrderedPermutationIter<'a, T>
     // all found permutations, recursively.
     fn find_adjacent_equal_permutations(&self, state: &[usize], prob: T, results: &mut Vec<(Vec<usize>, T)>) {
 
-        let letter_count = self.factor_count();
+        let factor_count = self.factor_count();
         let mut new_state = state.to_owned();
         
         loop {
@@ -258,7 +258,7 @@ impl<'a, T> OrderedPermutationIter<'a, T>
                 new_state[cur_digit] = state[cur_digit];
                 cur_digit += 1;
 
-                if cur_digit == letter_count {
+                if cur_digit == factor_count {
                     break;
                 }
 
@@ -289,7 +289,7 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 
     fn next(&mut self) -> Option<Self::Item> {
         
-        let letter_count = self.factor_count();
+        let factor_count = self.factor_count();
 
         //If we have some results in the stash, return those first
         if let Some((new_state, new_prob)) = self.result_stash.pop() {
@@ -304,7 +304,7 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
         
             //Advance the high-water mark for all returned states
             for (new_state, _new_prob) in new_states.iter() {
-                for i in 0..letter_count {
+                for i in 0..factor_count {
                     if new_state[i] > self.high_water_mark[i] {
                         self.high_water_mark[i] = new_state[i];
                     }
@@ -322,7 +322,7 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
             return self.state_to_result();
                 
         } else {
-            //If we couldn't find any letter_slots to advancee, we've reached the end of the iteration
+            //If we couldn't find any factors to advancee, we've reached the end of the iteration
             return None;
         }
     }
@@ -331,7 +331,7 @@ impl<T> Iterator for OrderedPermutationIter<'_, T>
 // GOAT,
 //3. Do a test with a function that does more than just multiplying all the factors together
 
-//a. search for the word "letter", replace with "factor"
+//√a. search for the word "letter", replace with "factor"
 //b. search for the word "prob", replace with "element"
 //√c. rename "permuted" to swizzled to avoid confusion
 
