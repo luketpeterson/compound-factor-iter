@@ -8,7 +8,7 @@ description = "Iterator types for output permutations from a function combining 
 repository = "https://github.com/luketpeterson/compound-factor-iter/"
 readme = "README.md"
 keywords = ["algorithm", "search", "manhattan", "iterator", "probabilities"]
-categories = ["algorithms", "search"]
+categories = ["algorithms", "data-structures", ]
 
 [dependencies]
 num-traits = "0.2.15"
