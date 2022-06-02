@@ -445,8 +445,8 @@ fn radix_test_0() {
             result_from_str("aba"),
             result_from_str("abb"),
             result_from_str("baa"),
-            result_from_str("bab"),
             result_from_str("bba"),
+            result_from_str("bab"),
             result_from_str("bbb"),
         ]);
 }
@@ -495,8 +495,8 @@ fn radix_test_2() {
     let ordered: Vec<(Vec<usize>, f32)> = test_dist.ordered_permutations().take(30).collect();
     let radix: Vec<(Vec<usize>, f32)> = test_dist.radix_permutations().take(100).collect();
 
-    // let ordered: Vec<(Vec<usize>, f32)> = test_dist.ordered_permutations().take(3000).collect();
-    // let radix: Vec<(Vec<usize>, f32)> = test_dist.radix_permutations().take(1000000).collect();
+    // let ordered: Vec<(Vec<usize>, f32)> = test_dist.ordered_permutations().take(1000).collect();
+    // let radix: Vec<(Vec<usize>, f32)> = test_dist.radix_permutations().take(3000).collect();
 
     let mut no_count = 0;
     for (i, (possible_word, word_prob)) in ordered.into_iter().enumerate() {
