@@ -77,7 +77,9 @@ The word "Manhattan" comes from the fact that permutations are tried in an order
 ### RadixPermutationIter
 The [RadixPermutationIter] is another fixed-cost iterator implemented as a counter in a [Mixed Radix](https://en.wikipedia.org/wiki/Mixed_radix) number space.
 
-The [ManhattanPermutationIter](crate::ManhattanPermutationIter) will usually produce more uniform coverage of a the factor-space, while the RadixPermutationIter will offer a more orderly sequence over small intervals.  The [RadixPermutationIter] is appropriate when some factors have vastly more influence over the function result than others.  This can be caused by the function itself or by the input factor values.
+The [RadixPermutationIter](https://docs.rs/compound_factor_iter/latest/compound_factor_iter/struct.RadixPermutationIter.html) usually produces a more orderly sequence over small intervals.  It is especially appropriate when some factors have vastly more influence over the function result than others.  This can be caused by the `combination_fn` function itself or by the input factor values.
+
+On the other hand, the [ManhattanPermutationIter](https://docs.rs/compound_factor_iter/latest/compound_factor_iter/struct.ManhattanPermutationIter.html) will usually produce more uniform coverage of a the factor-space.
 
 **It is recommended to try both fixed-cost iterators to determine the best one for your situation.**  For example, in the `search_dict_test` (from the [tests.rs](https://github.com/luketpeterson/compound-factor-iter/blob/main/src/tests.rs) file), the `ManhattanPermutationIter` can find the target word from a dictionary in 32K iterations, while the `RadixPermutationIter` takes 1.8M iterations.  However, in the `non_multiplicative_fn_test`, the `RadixPermutationIter` produces a sequence that is a considerably better fit to the ground-truth than the `ManhattanPermutationIter`.
 
